@@ -3,7 +3,10 @@
     "allow": [
       "Bash(npx prisma:*)",
       "Bash(npm install:*)",
-      "Bash(node -e \"const a = require\\(''@prisma/adapter-better-sqlite3''\\); console.log\\(Object.keys\\(a\\)\\)\")"
+      "Bash(node -e \"const a = require\\(''@prisma/adapter-better-sqlite3''\\); console.log\\(Object.keys\\(a\\)\\)\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://readnovelfull.com/coiling-dragon.html\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://www.google.com\")",
+      "Bash(npx tsx:*)"
     ]
   }
 }

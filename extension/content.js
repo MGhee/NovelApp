@@ -7,43 +7,65 @@
   const currentUrl = window.location.href
   const pageTitle = document.title
 
+  function parsePositiveInt(value) {
+    if (!value) return null
+    const n = parseInt(value, 10)
+    return Number.isFinite(n) && n > 0 ? n : null
+  }
+
+  function extractChapterFromUrl(url) {
+    const explicitMatch =
+      url.match(/(?:chapter|chap|ch)[\s._\-/]*(\d{1,5})(?!\d)/i) ||
+      url.match(/(?:episode|ep)[\s._\-/]*(\d{1,5})(?!\d)/i)
+    if (explicitMatch) return parsePositiveInt(explicitMatch[1])
+
+    try {
+      const u = new URL(url)
+
+      // Query params like ?chapter=120 or ?episode_no=57
+      const queryKeys = ['chapter', 'ch', 'chap', 'episode', 'ep', 'episode_no']
+      for (const key of queryKeys) {
+        const parsed = parsePositiveInt(u.searchParams.get(key))
+        if (parsed) return parsed
+      }
+
+      // Fallback to trailing numeric path patterns like /slug/123 or /title-123
+      const segments = u.pathname.split('/').filter(Boolean)
+      for (let i = segments.length - 1; i >= 0; i--) {
+        const clean = segments[i].replace(/\.[a-z0-9]+$/i, '')
+        const exact = clean.match(/^(\d{1,5})$/)
+        if (exact) return parsePositiveInt(exact[1])
+
+        const slugLike = clean.match(/(?:^|[-_])(\d{1,5})(?:$|[-_])/)
+        if (slugLike) return parsePositiveInt(slugLike[1])
+      }
+    } catch {
+      // Ignore parse failures and fall through.
+    }
+
+    return null
+  }
+
+  function extractChapterFromTitle(title) {
+    const match =
+      title.match(/(?:chapter|chap|ch)\.?\s*(\d{1,5})(?!\d)/i) ||
+      title.match(/(?:episode|ep)\.?\s*(\d{1,5})(?!\d)/i)
+    return match ? parsePositiveInt(match[1]) : null
+  }
+
   // 1. Extract chapter number from URL or title
-  const urlMatch = currentUrl.match(/chapter[_\-\/]?(\d+)/i)
-  const titleMatch = pageTitle.match(/chapter\s+(\d+)/i)
-  const chapterNumber = urlMatch
-    ? parseInt(urlMatch[1], 10)
-    : titleMatch
-    ? parseInt(titleMatch[1], 10)
-    : null
+  const chapterNumber = extractChapterFromUrl(currentUrl) ?? extractChapterFromTitle(pageTitle)
 
   if (!chapterNumber || isNaN(chapterNumber)) return
 
-  // 2. Derive book's base URL by stripping the chapter path segment
-  //    e.g. https://readnovelfull.com/book-slug/chapter-123.html
-  //       → https://readnovelfull.com/book-slug.html
-  function extractBookUrl(chUrl) {
-    try {
-      const u = new URL(chUrl)
-      const parts = u.pathname.split('/').filter(Boolean)
-      if (parts.length < 2) return null
-      const bookSlug = parts[0]
-      const bookPath = `/${bookSlug}${bookSlug.endsWith('.html') ? '' : '.html'}`
-      return `${u.origin}${bookPath}`
-    } catch {
-      return null
-    }
-  }
-
-  const bookBaseUrl = extractBookUrl(currentUrl)
-  if (!bookBaseUrl) return
-
-  // 3. Send update to local app
+  // 2. Send update to local app.
+  // API route normalizes chapter URL to book URL server-side for each site.
   try {
     const response = await fetch(`${APP_URL}/api/extension/update`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        siteUrl: bookBaseUrl,
+        siteUrl: currentUrl,
         chapterNumber,
         chapterUrl: currentUrl,
       }),
@@ -51,7 +73,7 @@
 
     const data = await response.json()
 
-    // 4. Notify background service worker
+    // 3. Notify background service worker
     chrome.runtime.sendMessage({
       type: 'CHAPTER_UPDATED',
       updated: data.updated,

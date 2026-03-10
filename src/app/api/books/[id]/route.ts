@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { bookEmitter } from '@/lib/events'
 import { normalizeUrl } from '@/lib/utils'
 
 type Params = { params: Promise<{ id: string }> }
@@ -50,6 +51,23 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       customFields: true,
       chapters: { orderBy: { number: 'asc' } },
     },
+  })
+
+  bookEmitter.emit('book_updated', {
+    id: book.id,
+    title: book.title,
+    author: book.author,
+    coverUrl: book.coverUrl,
+    status: book.status,
+    type: book.type,
+    currentChapter: book.currentChapter,
+    currentChapterUrl: book.currentChapterUrl,
+    totalChapters: book.totalChapters,
+    siteUrl: book.siteUrl,
+    genre: book.genre,
+    isFavorite: book.isFavorite,
+    yearRead: book.yearRead,
+    updatedAt: book.updatedAt.toISOString(),
   })
 
   return NextResponse.json(book)

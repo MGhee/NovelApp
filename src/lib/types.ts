@@ -46,6 +46,10 @@ export interface ChapterItem {
   url: string
 }
 
+export interface BookEvent extends BookSummary {
+  currentChapterUrl: string | null
+}
+
 export interface ScrapeResult {
   title: string
   author: string | null
@@ -54,4 +58,6 @@ export interface ScrapeResult {
   genre: string | null
   totalChapters: number
   chapters: Omit<ChapterItem, 'id'>[]
+  detectedChapter?: number   // set when input URL was a chapter URL
+  normalizedUrl?: string     // book index URL (differs from input if chapter URL was given)
 }

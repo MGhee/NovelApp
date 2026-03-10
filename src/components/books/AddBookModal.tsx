@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import type { ScrapeResult } from '@/lib/types'
 import { createBook } from '@/hooks/useBooks'
 
@@ -27,6 +28,7 @@ const STATUS_OPTIONS = [
 ]
 
 export default function AddBookModal({ onClose, onAdded, initialUrl = '' }: AddBookModalProps) {
+  const router = useRouter()
   const [step, setStep] = useState<Step>('url')
   const [url, setUrl] = useState(initialUrl)
   const [scraping, setScraping] = useState(false)
@@ -57,14 +59,43 @@ export default function AddBookModal({ onClose, onAdded, initialUrl = '' }: AddB
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: url.trim() }),
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Scrape failed')
+      const data: ScrapeResult = await res.json()
+      if (!res.ok) throw new Error((data as any).error || 'Scrape failed')
+
+      // If the scraper resolved a chapter URL to a book URL, update the displayed URL
+      const bookUrl = data.normalizedUrl || url.trim()
+      if (data.normalizedUrl) setUrl(data.normalizedUrl)
+
+      // Check if this book is already tracked (only when a chapter URL was detected)
+      if (data.detectedChapter !== undefined) {
+        const matchRes = await fetch(`/api/extension/match?url=${encodeURIComponent(bookUrl)}`)
+        const matchData = await matchRes.json()
+        if (matchData.match) {
+          const existing = matchData.match
+          // Update chapter progress if it has advanced
+          if (data.detectedChapter > existing.currentChapter) {
+            await fetch(`/api/books/${existing.id}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ currentChapter: data.detectedChapter }),
+            })
+          }
+          onClose()
+          router.push(`/books/${existing.id}`)
+          return
+        }
+      }
+
+      // Not a duplicate — populate form and proceed to confirm step
       setScraped(data)
       setTitle(data.title || '')
       setAuthor(data.author || '')
       setDescription(data.description || '')
       setGenre(data.genre || '')
       setCoverUrl(data.coverUrl || '')
+      if (data.detectedChapter !== undefined) {
+        setCurrentChapter(data.detectedChapter)
+      }
       setStep('confirm')
     } catch (e) {
       setScrapeError(e instanceof Error ? e.message : 'Failed to scrape')
@@ -134,9 +165,9 @@ export default function AddBookModal({ onClose, onAdded, initialUrl = '' }: AddB
         {step === 'url' && (
           <div>
             <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: '16px' }}>
-              Paste a book URL to auto-fill details, or skip to enter manually.
+              Paste a book or chapter URL to auto-fill details, or skip to enter manually.
             </p>
-            <label style={labelStyle}>Book URL</label>
+            <label style={labelStyle}>Book or Chapter URL</label>
             <input
               style={inputStyle}
               placeholder="https://readnovelfull.com/book-title.html"
@@ -162,6 +193,7 @@ export default function AddBookModal({ onClose, onAdded, initialUrl = '' }: AddB
             {scraped && (
               <div style={{ marginBottom: '12px', padding: '8px 12px', backgroundColor: 'rgba(99,102,241,0.1)', borderRadius: '6px', fontSize: '12px', color: 'var(--accent)' }}>
                 ✓ Scraped — {scraped.totalChapters} chapters found
+                {scraped.detectedChapter !== undefined && ` · chapter ${scraped.detectedChapter} detected from URL`}
               </div>
             )}
 

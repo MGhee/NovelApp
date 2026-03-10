@@ -3,7 +3,7 @@
 import { useState, useEffect, use } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import type { BookDetail, Character, CustomField } from '@/lib/types'
+import type { BookDetail, BookEvent, Character, CustomField } from '@/lib/types'
 import { updateBook, deleteBook } from '@/hooks/useBooks'
 import { useRouter } from 'next/navigation'
 
@@ -26,6 +26,43 @@ const TYPE_LABELS: Record<string, string> = {
   LIGHT_NOVEL: 'Light Novel',
   MANGA: 'Manga',
   MANHWA: 'Manhwa',
+}
+
+function RefreshButton({ bookId, onRefreshed }: { bookId: number; onRefreshed: (book: BookDetail) => void }) {
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  async function handleRefresh() {
+    setLoading(true)
+    setError('')
+    try {
+      const res = await fetch(`/api/books/${bookId}/refresh`, { method: 'POST' })
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || 'Refresh failed')
+      }
+      const updated: BookDetail = await res.json()
+      onRefreshed(updated)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+      <button
+        onClick={handleRefresh}
+        disabled={loading}
+        title="Refresh metadata from site"
+        style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '4px', color: 'var(--text-muted)', fontSize: '11px', padding: '2px 8px', cursor: 'pointer' }}
+      >
+        {loading ? '…' : '↻ Refresh'}
+      </button>
+      {error && <span style={{ fontSize: '11px', color: 'var(--status-dropped)' }}>{error}</span>}
+    </span>
+  )
 }
 
 export default function BookDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -65,6 +102,17 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
   }
 
   useEffect(() => { loadBook() }, [id])
+
+  useEffect(() => {
+    const es = new EventSource('/api/books/events')
+    es.addEventListener('book_updated', (e) => {
+      const updated: BookEvent = JSON.parse(e.data)
+      if (updated.id !== parseInt(id)) return
+      setBook(prev => prev ? { ...prev, ...updated } : prev)
+      setChapterInput(updated.currentChapter)
+    })
+    return () => es.close()
+  }, [id])
 
   async function updateChapter() {
     await updateBook(parseInt(id), { currentChapter: chapterInput } as any)
@@ -274,9 +322,12 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
           </div>
 
           {book.siteUrl && (
-            <a href={book.siteUrl} target="_blank" rel="noreferrer" style={{ display: 'inline-block', marginTop: '10px', fontSize: '12px', color: 'var(--accent)' }}>
-              ↗ View on site
-            </a>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '10px' }}>
+              <a href={book.siteUrl} target="_blank" rel="noreferrer" style={{ fontSize: '12px', color: 'var(--accent)' }}>
+                ↗ View on site
+              </a>
+              <RefreshButton bookId={book.id} onRefreshed={setBook} />
+            </div>
           )}
         </div>
 

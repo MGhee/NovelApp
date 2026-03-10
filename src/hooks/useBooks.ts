@@ -3,6 +3,17 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { BookSummary, BookDetail } from '@/lib/types'
 
+function useBookEvents(setBooks: React.Dispatch<React.SetStateAction<BookSummary[]>>) {
+  useEffect(() => {
+    const es = new EventSource('/api/books/events')
+    es.addEventListener('book_updated', (e) => {
+      const updated: BookSummary = JSON.parse(e.data)
+      setBooks(prev => prev.map(b => b.id === updated.id ? updated : b))
+    })
+    return () => es.close()
+  }, [setBooks])
+}
+
 type BooksFilter = {
   status?: string
   search?: string
@@ -33,6 +44,7 @@ export function useBooks(filter: BooksFilter = {}) {
   }, [filter.status, filter.search, filter.favorites])
 
   useEffect(() => { fetchBooks() }, [fetchBooks])
+  useBookEvents(setBooks)
 
   return { books, loading, error, refetch: fetchBooks }
 }
