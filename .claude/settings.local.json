@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx prisma:*)",
+      "Bash(npm install:*)",
+      "Bash(node -e \"const a = require\\(''@prisma/adapter-better-sqlite3''\\); console.log\\(Object.keys\\(a\\)\\)\")"
+    ]
+  }
+}

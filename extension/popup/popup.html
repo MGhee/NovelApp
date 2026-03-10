@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>NovelApp Tracker</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div id="app">
+    <header>
+      <span class="logo">📚</span>
+      <span class="title">NovelApp Tracker</span>
+      <a href="http://localhost:3000" target="_blank" class="open-app">Open App ↗</a>
+    </header>
+
+    <div id="status-section">
+      <div id="loading" class="state">Loading…</div>
+      <div id="matched" class="state hidden">
+        <div class="book-info">
+          <img id="book-cover" src="" alt="" />
+          <div class="book-meta">
+            <div id="book-title" class="book-title"></div>
+            <div id="book-progress" class="book-progress"></div>
+            <div class="progress-bar-bg">
+              <div id="progress-bar" class="progress-bar-fill"></div>
+            </div>
+            <div id="book-status" class="book-status"></div>
+          </div>
+        </div>
+        <div class="actions">
+          <button id="open-book-btn" class="btn-primary">View in App</button>
+        </div>
+      </div>
+      <div id="not-matched" class="state hidden">
+        <div class="no-match-icon">📖</div>
+        <p class="no-match-text">This book isn't in your list yet.</p>
+        <button id="add-book-btn" class="btn-primary">+ Add this book</button>
+      </div>
+      <div id="app-offline" class="state hidden">
+        <div class="no-match-icon">⚠️</div>
+        <p class="no-match-text">NovelApp is not running.<br/>Start it at localhost:3000</p>
+      </div>
+      <div id="not-novel-site" class="state hidden">
+        <div class="no-match-icon">🌐</div>
+        <p class="no-match-text">Navigate to a novel reading site to start tracking.</p>
+        <a href="http://localhost:3000" target="_blank" class="btn-primary" style="display:inline-block;text-decoration:none;text-align:center;">Open App</a>
+      </div>
+    </div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

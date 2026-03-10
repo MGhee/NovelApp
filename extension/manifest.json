@@ -1,0 +1,36 @@
+{
+  "manifest_version": 3,
+  "name": "NovelApp Tracker",
+  "version": "1.0.0",
+  "description": "Auto-tracks your chapter progress on novel reading sites",
+  "permissions": ["activeTab", "storage", "scripting"],
+  "host_permissions": [
+    "https://readnovelfull.com/*",
+    "https://novelfull.com/*",
+    "https://novelbin.com/*",
+    "https://lightnovelworld.com/*",
+    "https://mangadex.org/*",
+    "https://webtoon.com/*",
+    "http://localhost:3000/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://readnovelfull.com/*/*",
+        "https://novelfull.com/*/*",
+        "https://novelbin.com/*/*",
+        "https://lightnovelworld.com/*/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "NovelApp Tracker",
+    "default_badge_text": ""
+  }
+}

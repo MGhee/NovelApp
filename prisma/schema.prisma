@@ -1,0 +1,70 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Book {
+  id                Int           @id @default(autoincrement())
+  title             String
+  author            String?
+  coverUrl          String?
+  description       String?
+  genre             String?
+  status            Status        @default(PLAN_TO_READ)
+  type              BookType      @default(WEB_NOVEL)
+  siteUrl           String?       @unique
+  currentChapter    Int           @default(0)
+  currentChapterUrl String?
+  totalChapters     Int           @default(0)
+  isFavorite        Boolean       @default(false)
+  yearRead          Int?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  characters        Character[]
+  customFields      CustomField[]
+  chapters          Chapter[]
+}
+
+model Chapter {
+  id     Int     @id @default(autoincrement())
+  number Int
+  title  String?
+  url    String
+  bookId Int
+  book   Book    @relation(fields: [bookId], references: [id], onDelete: Cascade)
+}
+
+model Character {
+  id          Int     @id @default(autoincrement())
+  name        String
+  description String?
+  role        String?
+  bookId      Int
+  book        Book    @relation(fields: [bookId], references: [id], onDelete: Cascade)
+}
+
+model CustomField {
+  id     Int    @id @default(autoincrement())
+  key    String
+  value  String
+  bookId Int
+  book   Book   @relation(fields: [bookId], references: [id], onDelete: Cascade)
+}
+
+enum Status {
+  READING
+  COMPLETED
+  PLAN_TO_READ
+  DROPPED
+}
+
+enum BookType {
+  WEB_NOVEL
+  LIGHT_NOVEL
+  MANGA
+  MANHWA
+}
