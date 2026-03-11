@@ -132,21 +132,20 @@ export default function BookCard({ book, onDeleted, onUpdated }: BookCardProps) 
         </div>
 
         {/* Info */}
-        <div style={{ padding: '10px 12px', height: '110px', display: 'flex', flexDirection: 'column' }}>
-          <div className="line-clamp-2" style={{ fontSize: '13px', fontWeight: 600, marginBottom: '2px', lineHeight: 1.3, minHeight: '34px' }}>
+        <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', flex: 1 }}>
+          <div className="line-clamp-2" style={{ fontSize: '13px', fontWeight: 600, marginBottom: '2px', lineHeight: 1.3 }}>
             {book.title}
           </div>
-          <div style={{ minHeight: '16px', marginBottom: '4px' }}>
+          <div style={{ marginBottom: '4px' }}>
             {book.author && (
               <div className="line-clamp-1" style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
                 {book.author}
               </div>
             )}
-            {!book.author && <span style={{ fontSize: '11px', color: 'transparent' }}>‌</span>}
           </div>
 
           {/* Genre tags */}
-          <div style={{ minHeight: '22px', display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: '6px' }}>
+          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: '6px' }}>
             {book.genre && (
               <>
                 {book.genre.split(',').slice(0, 2).map((g) => (
@@ -165,8 +164,8 @@ export default function BookCard({ book, onDeleted, onUpdated }: BookCardProps) 
             )}
           </div>
 
-          {/* Chapter progress */}
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+          {/* Chapter progress text */}
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '6px' }}>
             {book.totalChapters > 0
               ? `Ch. ${book.currentChapter} / ${book.totalChapters}`
               : book.currentChapter > 0
@@ -175,17 +174,18 @@ export default function BookCard({ book, onDeleted, onUpdated }: BookCardProps) 
           </div>
 
           {/* Progress bar */}
-          <div style={{ height: '3px', backgroundColor: 'var(--border)', borderRadius: '2px', marginTop: 'auto' }}>
-            {book.totalChapters > 0 && (
+          {book.totalChapters > 0 && (
+            <div style={{ height: '4px', backgroundColor: 'var(--border)', borderRadius: '3px', overflow: 'hidden' }}>
               <div style={{
                 height: '100%',
                 width: `${progress}%`,
                 backgroundColor: STATUS_COLORS[book.status],
-                borderRadius: '2px',
+                borderRadius: '3px',
                 transition: 'width 0.3s',
+                boxShadow: `0 0 8px ${STATUS_COLORS[book.status]}80`,
               }} />
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
     </Link>
