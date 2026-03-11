@@ -9,6 +9,12 @@
     "https://novelfull.com/*",
     "https://novelbin.com/*",
     "https://lightnovelworld.com/*",
+    "https://hangukhub.com/*",
+    "https://www.hangukhub.com/*",
+    "https://empirenovel.com/*",
+    "https://www.empirenovel.com/*",
+    "https://novellive.app/*",
+    "https://www.novellive.app/*",
     "https://mangadex.org/*",
     "https://webtoon.com/*",
     "http://localhost:3000/*"
@@ -21,8 +27,14 @@
       "matches": [
         "https://readnovelfull.com/*/*",
         "https://novelfull.com/*/*",
-        "https://novelbin.com/*/*",
-        "https://lightnovelworld.com/*/*"
+        "https://novelbin.com/*",
+        "https://lightnovelworld.com/*/*",
+        "https://hangukhub.com/*",
+        "https://www.hangukhub.com/*",
+        "https://empirenovel.com/*",
+        "https://www.empirenovel.com/*",
+        "https://novellive.app/*",
+        "https://www.novellive.app/*"
       ],
       "js": ["content.js"],
       "run_at": "document_idle"

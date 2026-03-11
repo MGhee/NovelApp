@@ -11,7 +11,7 @@ export function normalizeUrl(url: string): string {
 /**
  * Given a chapter URL, return the book's index URL.
  * Returns null if the URL is already a book index URL or cannot be converted.
- * Handles: readnovelfull, novelpub, wuxiaworld, royalroad, scribblehub, webtoons, toonily.
+ * Handles: readnovelfull, novelpub, wuxiaworld, royalroad, scribblehub, webtoons, toonily, empirenovel, hangukhub, novelbin, novellive.
  * (mangadex chapter URLs need an API call — handled in the scraper directly.)
  */
 export function extractBookUrl(chapterUrl: string): string | null {
@@ -110,6 +110,14 @@ export function extractBookUrl(chapterUrl: string): string | null {
       // /novel-book/{slug}/chapter-N → /novel-book/{slug}
       if (parts.length >= 3 && parts[0] === 'novel-book' && /chapter/i.test(parts[2])) {
         return `${u.origin}/novel-book/${parts[1]}`
+      }
+      return null
+    }
+
+    if (host === 'novellive.app') {
+      // /book/{slug}/chapter-{N}-{title-slug} → /book/{slug}
+      if (parts.length >= 3 && parts[0] === 'book' && /chapter/i.test(parts[2])) {
+        return `${u.origin}/book/${parts[1]}`
       }
       return null
     }

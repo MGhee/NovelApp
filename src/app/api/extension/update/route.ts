@@ -1,7 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { bookEmitter } from '@/lib/events'
-import { extractBookUrl } from '@/lib/utils'
+import { extractBookUrl, normalizeUrl } from '@/lib/utils'
+
+function buildUrlCandidates(inputUrl: string): string[] {
+  const candidates = new Set<string>()
+
+  const addForms = (raw: string) => {
+    if (!raw) return
+    const trimmed = raw.trim()
+    if (!trimmed) return
+
+    candidates.add(trimmed)
+    const normalized = normalizeUrl(trimmed)
+    candidates.add(normalized)
+    candidates.add(`${normalized}/`)
+    candidates.add(normalized.replace(/\/$/, ''))
+
+    try {
+      const u = new URL(normalized)
+      const noWwwHost = u.hostname.replace(/^www\./, '')
+      const withNoWww = `${u.protocol}//${noWwwHost}${u.pathname}`.replace(/\/$/, '')
+      candidates.add(withNoWww)
+      candidates.add(`${withNoWww}/`)
+    } catch {
+      // Ignore malformed URL candidates.
+    }
+  }
+
+  addForms(inputUrl)
+  const extracted = extractBookUrl(inputUrl)
+  if (extracted) addForms(extracted)
+
+  return [...candidates]
+}
 
 export async function POST(req: NextRequest) {
   const { siteUrl, chapterNumber, chapterUrl } = await req.json()
@@ -9,11 +41,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'siteUrl and chapterNumber are required' }, { status: 400 })
   }
 
-  // The extension sends the chapter URL — derive the book base URL from it
-  const bookBaseUrl = extractBookUrl(siteUrl) || siteUrl
+  // The extension sends chapter URL; build robust variants to match stored siteUrl.
+  const urlCandidates = buildUrlCandidates(siteUrl)
 
   const book = await prisma.book.findFirst({
-    where: { siteUrl: bookBaseUrl },
+    where: { siteUrl: { in: urlCandidates } },
     select: { id: true, currentChapter: true, status: true },
   })
 

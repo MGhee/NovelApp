@@ -33,7 +33,7 @@ async function init() {
   if (!tab?.url) { showState('not-novel-site'); return }
 
   const url = tab.url
-  const isNovelSite = /readnovelfull\.com|novelfull\.com|novelbin\.com|lightnovelworld\.com|mangadex\.org|webtoon\.com/.test(url)
+  const isNovelSite = /readnovelfull\.com|novelfull\.com|novelbin\.com|lightnovelworld\.com|empirenovel\.com|hangukhub\.com|novellive\.app|mangadex\.org|webtoon\.com/.test(url)
 
   if (!isNovelSite) { showState('not-novel-site'); return }
 

@@ -11,6 +11,8 @@ import { scrapeToonily } from './toonily'
 import { scrapeEmpireNovel } from './empirenovel'
 import { scrapeHangukHub } from './hangukhub'
 import { scrapeNovelBin } from './novelbin'
+import { scrapeNovellive } from './novellive'
+import { scrapeJustLightNovels } from './justlightnovels'
 import { scrapeGeneric } from './generic'
 
 export async function scrapeBook(inputUrl: string): Promise<ScrapeResult> {
@@ -62,6 +64,10 @@ export async function scrapeBook(inputUrl: string): Promise<ScrapeResult> {
     result = await scrapeHangukHub(url)
   } else if (scraperHost === 'novelbin.com') {
     result = await scrapeNovelBin(url)
+  } else if (scraperHost === 'novellive.app') {
+    result = await scrapeNovellive(url)
+  } else if (scraperHost === 'justlightnovels.com') {
+    result = await scrapeJustLightNovels(url)
   } else {
     result = await scrapeGeneric(url)
   }

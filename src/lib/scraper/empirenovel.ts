@@ -1,29 +1,10 @@
-import axios from 'axios'
 import * as cheerio from 'cheerio'
+import { fetchWithBrowser } from './browser'
 import type { ScrapeResult } from '@/lib/types'
 
-const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
 const BASE = 'https://www.empirenovel.com'
 
-const HEADERS = {
-  'User-Agent': UA,
-  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-  'Accept-Language': 'en-US,en;q=0.9',
-  'Accept-Encoding': 'gzip, deflate, br',
-  'Connection': 'keep-alive',
-  'Upgrade-Insecure-Requests': '1',
-  'Sec-Fetch-Dest': 'document',
-  'Sec-Fetch-Mode': 'navigate',
-  'Sec-Fetch-Site': 'none',
-  'Sec-Fetch-User': '?1',
-  'Cache-Control': 'max-age=0',
-}
-
-export async function scrapeEmpireNovel(url: string): Promise<ScrapeResult> {
-  const { data: html } = await axios.get(url, {
-    headers: HEADERS,
-    timeout: 20000,
-  })
+export function parseEmpireNovel(html: string, url: string): ScrapeResult {
   const $ = cheerio.load(html)
 
   const title =
@@ -75,35 +56,15 @@ export async function scrapeEmpireNovel(url: string): Promise<ScrapeResult> {
     }
   })
 
-  // Also try a dedicated chapter list page if available
-  if (chapters.length === 0) {
-    try {
-      const listUrl = `${BASE}/novel/${slug}/`
-      if (listUrl !== url && listUrl !== `${url}/`) {
-        const { data: listHtml } = await axios.get(listUrl, {
-          headers: { ...HEADERS, Referer: url },
-          timeout: 15000,
-        })
-        const $l = cheerio.load(listHtml)
-        $l('a[href]').each((_, el) => {
-          const href = $l(el).attr('href') || ''
-          const match = href.match(new RegExp(`/novel/${slug}/(\\d+)/?$`))
-          if (match) {
-            const num = parseInt(match[1], 10)
-            if (!chapters.find(c => c.number === num)) {
-              chapters.push({
-                number: num,
-                title: $l(el).text().trim() || `Chapter ${num}`,
-                url: href.startsWith('http') ? href : `${BASE}${href}`,
-              })
-            }
-          }
-        })
-      }
-    } catch { /* ignore */ }
-  }
-
   chapters.sort((a, b) => a.number - b.number)
 
   return { title, author, coverUrl, description, genre, totalChapters: chapters.length, chapters }
+}
+
+export async function scrapeEmpireNovel(url: string): Promise<ScrapeResult> {
+  const html = await fetchWithBrowser(url, {
+    timeout: 30000,
+  })
+
+  return parseEmpireNovel(html, url)
 }

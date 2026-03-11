@@ -16,6 +16,7 @@ import path from 'path'
 import { PrismaClient } from '../src/generated/prisma/client'
 import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3'
 import { scrapeBook } from '../src/lib/scraper'
+import { closeBrowser } from '../src/lib/scraper/browser'
 import type { ScrapeResult } from '../src/lib/types'
 
 const dbPath = path.resolve(process.cwd(), 'dev.db')
@@ -160,4 +161,7 @@ async function main() {
 
 main()
   .catch(e => { console.error(e); process.exit(1) })
-  .finally(() => prisma.$disconnect())
+  .finally(async () => {
+    await closeBrowser()
+    await prisma.$disconnect()
+  })

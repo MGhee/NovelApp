@@ -67,4 +67,5 @@ enum BookType {
   LIGHT_NOVEL
   MANGA
   MANHWA
+  PDF_DOWNLOAD
 }

@@ -1,15 +1,10 @@
-import axios from 'axios'
 import * as cheerio from 'cheerio'
+import { withPage } from './browser'
 import type { ScrapeResult } from '@/lib/types'
 
-const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 const BASE = 'https://novelbin.com'
 
-export async function scrapeNovelBin(url: string): Promise<ScrapeResult> {
-  const { data: html } = await axios.get(url, {
-    headers: { 'User-Agent': UA, Referer: BASE },
-    timeout: 15000,
-  })
+export function parseNovelBin(html: string, url: string, chapterListHtml?: string): ScrapeResult {
   const $ = cheerio.load(html)
 
   const title =
@@ -43,36 +38,25 @@ export async function scrapeNovelBin(url: string): Promise<ScrapeResult> {
 
   // NovelBin uses the same AJAX chapter-archive pattern as ReadNovelFull
   const chapters: ScrapeResult['chapters'] = []
-  const novelId =
-    $('#rating').attr('data-novel-id') ||
-    $('[data-novel-id]').first().attr('data-novel-id') ||
-    ''
 
-  if (novelId) {
-    try {
-      const { data: chHtml } = await axios.get(
-        `${BASE}/ajax/chapter-archive?novelId=${novelId}`,
-        { headers: { 'User-Agent': UA, Referer: url }, timeout: 15000 }
-      )
-      const $c = cheerio.load(chHtml)
-      $c('ul.list-chapter li a').each((i, el) => {
-        const href = $c(el).attr('href') || ''
-        const chTitle = $c(el).text().trim()
-        const numMatch = href.match(/chapter[_-](\d+)/i)
-        if (href) {
-          chapters.push({
-            number: numMatch ? parseInt(numMatch[1], 10) : i + 1,
-            title: chTitle || null,
-            url: href.startsWith('http') ? href : `${BASE}${href}`,
-          })
-        }
-      })
-      chapters.sort((a, b) => a.number - b.number)
-    } catch { /* chapter list unavailable */ }
-  }
-
-  // Fallback: parse chapter links from page directly
-  if (chapters.length === 0) {
+  // If provided HTML from AJAX endpoint, use it; otherwise try to extract from main page
+  if (chapterListHtml) {
+    const $c = cheerio.load(chapterListHtml)
+    $c('ul.list-chapter li a').each((i, el) => {
+      const href = $c(el).attr('href') || ''
+      const chTitle = $c(el).text().trim()
+      const numMatch = href.match(/chapter[_-](\d+)/i)
+      if (href) {
+        chapters.push({
+          number: numMatch ? parseInt(numMatch[1], 10) : i + 1,
+          title: chTitle || null,
+          url: href.startsWith('http') ? href : `${BASE}${href}`,
+        })
+      }
+    })
+    chapters.sort((a, b) => a.number - b.number)
+  } else {
+    // Fallback: parse chapter links from page directly
     $('a[href*="chapter"]').each((_, el) => {
       const href = $(el).attr('href') || ''
       const numMatch = href.match(/chapter[_-](\d+)/i)
@@ -88,4 +72,29 @@ export async function scrapeNovelBin(url: string): Promise<ScrapeResult> {
   }
 
   return { title, author, coverUrl, description, genre, totalChapters: chapters.length, chapters }
+}
+
+export async function scrapeNovelBin(url: string): Promise<ScrapeResult> {
+  return withPage(async (page) => {
+    await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 })
+    const html = await page.content()
+
+    // Fetch AJAX chapter list from within the browser context (same-origin, shares Cloudflare cookies)
+    const chapterListHtml = await page.evaluate(async (base) => {
+      const el = document.querySelector('#rating[data-novel-id], [data-novel-id]')
+      const novelId = el?.getAttribute('data-novel-id')
+      if (!novelId) return null
+
+      try {
+        const resp = await fetch(`${base}/ajax/chapter-archive?novelId=${novelId}`, {
+          credentials: 'same-origin',
+        })
+        return resp.ok ? await resp.text() : null
+      } catch {
+        return null
+      }
+    }, BASE)
+
+    return parseNovelBin(html, url, chapterListHtml ?? undefined)
+  })
 }

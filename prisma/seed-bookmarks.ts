@@ -31,18 +31,11 @@ const BOOKMARKS = [
   { url: 'https://readnovelfull.com/pocket-hunting-dimension-v1.html', title: 'Pocket Hunting Dimension' },
 
   // Other sites (title only, no scrape)
-  { url: 'https://novelfull.com/monarch-of-evernight.html', title: 'Monarch of Evernight', noScrape: true },
-  { url: 'https://m.wuxiaworld.co/Versatile-Mage/', title: 'Versatile Mage', noScrape: true },
-  { url: 'https://m.wuxiaworld.co/Reverend-Insanity/', title: 'Reverend Insanity', noScrape: true },
-  { url: 'https://totallytranslations.com/peerless-martial-god-2/', title: 'Peerless Martial God 2', noScrape: true },
-  { url: 'https://gravitytales.com/novel/hedonist-sovereign', title: 'Hedonist Sovereign', noScrape: true },
-  { url: 'https://volarenovels.com/novel/divine-throne-of-primordial-blood', title: 'Divine Throne of Primordial Blood', noScrape: true },
   { url: 'https://novelupdates.com/series/the-demon-prince-goes-to-the-academy/', title: 'The Demon Prince Goes to the Academy', noScrape: true },
-  { url: 'https://novelupdates.com/series/warriors-promise/', title: 'Warrior\'s Promise', noScrape: true },
   { url: 'https://justlightnovels.com/taking-my-reincarnation-one-step-at-a-time/', title: 'Taking My Reincarnation One Step at a Time', noScrape: true },
   { url: 'https://justlightnovels.com/private-tutor-to-the-dukes-daughter/', title: 'Private Tutor to the Duke\'s Daughter', noScrape: true },
   { url: 'https://justlightnovels.com/isekai-tensei-recruited-to-another-world/', title: 'Isekai Tensei: Recruited to Another World', noScrape: true },
-  { url: 'https://novellive.com/book/the-martial-unity', title: 'The Martial Unity', noScrape: true },
+  { url: 'https://novellive.app/book/the-martial-unity', title: 'The Martial Unity' },
 ]
 
 async function main() {
