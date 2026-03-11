@@ -12,13 +12,22 @@ export async function scrapeReadNovelFull(url: string): Promise<ScrapeResult> {
   })
   const $ = cheerio.load(html)
 
-  const title = $('h3.title').text().trim() || $('h1').first().text().trim() || 'Unknown'
+  let title = $('h3.title').text().trim() || $('h1').first().text().trim() || 'Unknown'
+  // Deduplicate title if it appears twice (e.g., "TitleTitle")
+  const halfLen = Math.floor(title.length / 2)
+  if (halfLen > 5 && title.substring(0, halfLen) === title.substring(halfLen)) {
+    title = title.substring(0, halfLen)
+  }
   const author = $('li.author a').first().text().trim() || null
   const rawCover = $('.book img').attr('src') || $('meta[property="og:image"]').attr('content') || null
   const coverUrl = rawCover
     ? rawCover.startsWith('http') ? rawCover : `${BASE}${rawCover}`
     : null
-  const description = $('div.desc-text p').map((_, el) => $(el).text().trim()).get().join('\n').trim() || null
+  let description = $('div.desc-text p').map((_, el) => $(el).text().trim()).get().join('\n').trim() || null
+  // Remove title if it appears at the start of description (duplicate from site HTML)
+  if (description && description.startsWith(title)) {
+    description = description.substring(title.length).trim()
+  }
   const genre = $('li.categories a').map((_, el) => $(el).text().trim()).get().join(', ') || null
 
   // Novel ID is in a data attribute used for chapter list AJAX
