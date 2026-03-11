@@ -79,19 +79,39 @@ export function parseHangukHub(html: string, url: string): ScrapeResult {
     $('[itemprop="author"]').first().text().trim() ||
     null
 
-  const rawCover =
-    $('div.summary_image img, .thumb img, .cover img').attr('src') ||
-    $('meta[property="og:image"]').attr('content') ||
-    null
-  const coverUrl = rawCover
-    ? rawCover.startsWith('http') ? rawCover : `${BASE}${rawCover}`
-    : null
+  // Try multiple selectors for cover image, including Next.js optimized images
+  let rawCover = $('img.object-cover').attr('src') || $('img.object-cover').attr('data-src')
+  if (!rawCover) rawCover = $('div.summary_image img, .thumb img, .cover img').attr('src')
+  if (!rawCover) rawCover = $('meta[property="og:image"]').attr('content')
 
-  const description =
-    $('div.summary__content p, div.manga-summary p, .description p')
-      .map((_, el) => $(el).text().trim()).get().join('\n').trim() ||
-    $('meta[property="og:description"]').attr('content')?.trim() ||
-    null
+  // Extract actual image URL from Next.js optimization wrapper if present
+  let coverUrl: string | null = null
+  if (rawCover) {
+    if (rawCover.includes('/_next/image')) {
+      // Extract URL from Next.js image optimization: /_next/image?url=...&w=...&q=...
+      const urlMatch = rawCover.match(/url=([^&]+)/)
+      if (urlMatch) {
+        coverUrl = decodeURIComponent(urlMatch[1])
+      } else {
+        coverUrl = rawCover
+      }
+    } else {
+      coverUrl = rawCover.startsWith('http') ? rawCover : `${BASE}${rawCover}`
+    }
+  }
+
+  // Try multiple selectors for description
+  let description = $('div.summary__content p, div.manga-summary p, .description p')
+    .map((_, el) => $(el).text().trim()).get().filter(Boolean).join('\n').trim() || null
+  if (!description) description = $('meta[property="og:description"]').attr('content')?.trim() || null
+  // Fallback: look for any substantial paragraph text
+  if (!description) {
+    const p = $('p').filter((_, el) => {
+      const text = $(el).text().trim()
+      return text.length > 50 && !text.toLowerCase().includes('cookie')
+    }).first().text().trim()
+    description = p || null
+  }
 
   const genre =
     $('.genres-content a, .wp-manga-tags-list a, .genre a')
@@ -153,6 +173,7 @@ export async function scrapeHangukHub(url: string): Promise<ScrapeResult> {
   // Fetch the first page to get metadata
   const html = await fetchWithBrowser(seriesUrl, {
     timeout: 30000,
+    waitSelector: 'a[href*="/series/"][href*="chapter"]', // Wait for chapter links to render
   })
 
   const result = parseHangukHub(html, seriesUrl)
