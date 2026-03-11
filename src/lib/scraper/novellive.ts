@@ -3,6 +3,7 @@ import { fetchWithBrowser } from './browser'
 import type { ScrapeResult } from '@/lib/types'
 
 const BASE = 'https://novellive.app'
+const MEDIA_BASE = 'https://media.novellive.com' // Use .com CDN which is accessible
 
 export function parseNovellive(html: string, url: string): ScrapeResult {
   const $ = cheerio.load(html)
@@ -21,9 +22,15 @@ export function parseNovellive(html: string, url: string): ScrapeResult {
     $('img[class*="cover"]').attr('src') ||
     $('meta[property="og:image"]').attr('content') ||
     null
-  const coverUrl = rawCover
-    ? rawCover.startsWith('http') ? rawCover : `${BASE}${rawCover}`
-    : null
+  let coverUrl: string | null = null
+  if (rawCover) {
+    if (rawCover.startsWith('http')) {
+      // Replace .app domain with working .com CDN domain
+      coverUrl = rawCover.replace('media.novellive.app', 'media.novellive.com')
+    } else {
+      coverUrl = `${BASE}${rawCover}`
+    }
+  }
 
   const description =
     $('meta[property="og:description"]').attr('content')?.trim() ||
