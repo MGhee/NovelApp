@@ -59,7 +59,7 @@ export async function scrapeNovelpub(url: string): Promise<ScrapeResult> {
     const lastPage = parseInt($c('.pagination .PagedList-skipToLast a, .pagination li:last-child a').attr('href')?.match(/page=(\d+)/)?.[1] || '1', 10)
     const maxPages = Math.min(lastPage, 20) // cap at 20 pages to avoid abuse
 
-    const collectChapters = ($p: cheerio.CheerioAPI) => {
+    const collectChapters = ($p: cheerio.Root | cheerio.CheerioAPI) => {
       $p('ul.chapter-list li a, .chapter-list a').each((i, el) => {
         const href = $p(el).attr('href') || ''
         const chTitle = $p(el).find('.chapter-title, span').first().text().trim() || $p(el).text().trim()

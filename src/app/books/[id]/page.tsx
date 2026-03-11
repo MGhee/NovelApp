@@ -3,9 +3,11 @@
 import { useState, useEffect, use } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
+import { motion, AnimatePresence } from 'framer-motion'
 import type { BookDetail, BookEvent, Character, CustomField } from '@/lib/types'
 import { updateBook, deleteBook } from '@/hooks/useBooks'
 import { useRouter } from 'next/navigation'
+import PageTransition from '@/components/PageTransition'
 
 const STATUS_COLORS: Record<string, string> = {
   READING: 'var(--status-reading)',
@@ -15,10 +17,10 @@ const STATUS_COLORS: Record<string, string> = {
 }
 
 const STATUS_LABELS: Record<string, string> = {
-  READING: 'Reading',
+  READING: 'Now Reading',
   COMPLETED: 'Completed',
-  PLAN_TO_READ: 'Plan to Read',
-  DROPPED: 'Dropped',
+  PLAN_TO_READ: 'Watchlist',
+  DROPPED: 'On Hold',
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -88,6 +90,9 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
   const [charDesc, setCharDesc] = useState('')
   const [addingChar, setAddingChar] = useState(false)
 
+  // Chapter groups state
+  const [expandedGroups, setExpandedGroups] = useState<Set<number>>(new Set())
+
   async function loadBook() {
     setLoading(true)
     const res = await fetch(`/api/books/${id}`)
@@ -101,7 +106,17 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
     setLoading(false)
   }
 
-  useEffect(() => { loadBook() }, [id])
+  useEffect(() => {
+    loadBook()
+  }, [id])
+
+  useEffect(() => {
+    // Auto-expand the group containing current chapter
+    if (book && book.chapters.length > 0) {
+      const groupIndex = Math.floor((book.currentChapter - 1) / 50)
+      setExpandedGroups(new Set([groupIndex]))
+    }
+  }, [book?.id])
 
   useEffect(() => {
     const es = new EventSource('/api/books/events')
@@ -182,34 +197,87 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
   const progress = book.totalChapters > 0 ? Math.min((book.currentChapter / book.totalChapters) * 100, 100) : 0
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)' }}>
-      {/* Header */}
-      <header style={{
-        padding: '0 24px', height: '56px', display: 'flex', alignItems: 'center',
-        gap: '12px', borderBottom: '1px solid var(--border)',
-        position: 'sticky', top: 0, zIndex: 30,
-        backgroundColor: 'rgba(13,13,13,0.95)', backdropFilter: 'blur(8px)',
-      }}>
-        <Link href="/" style={{ color: 'var(--text-muted)', textDecoration: 'none', fontSize: '13px' }}>
-          ← Back
-        </Link>
+    <PageTransition>
+      <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)' }}>
+        {/* Header */}
+        <header style={{
+          padding: '0 24px', height: '56px', display: 'flex', alignItems: 'center',
+          gap: '12px', borderBottom: '1px solid var(--border)',
+          position: 'sticky', top: 0, zIndex: 30,
+          backgroundColor: 'rgba(13,13,13,0.95)', backdropFilter: 'blur(8px)',
+        }}>
+          <button
+            onClick={() => router.back()}
+            style={{ color: 'var(--text-muted)', textDecoration: 'none', fontSize: '13px', background: 'none', border: 'none', cursor: 'pointer', padding: '0' }}
+          >
+            ← Back
+          </button>
         <span style={{ color: 'var(--border)' }}>|</span>
         <span style={{ fontSize: '13px', color: 'var(--text-muted)' }} className="line-clamp-1">{book.title}</span>
       </header>
 
-      {/* Hero */}
-      <div style={{ padding: '24px 24px 0', display: 'flex', gap: '24px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
-        {/* Cover */}
-        <div style={{ position: 'relative', width: '140px', height: '200px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, backgroundColor: '#1a1a2e' }}>
-          {book.coverUrl ? (
-            <Image src={book.coverUrl} alt={book.title} fill style={{ objectFit: 'cover' }} sizes="140px" />
-          ) : (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', fontSize: '40px' }}>📖</div>
-          )}
-        </div>
+      {/* Hero Banner */}
+      <div style={{ position: 'relative', overflow: 'hidden' }}>
+        {/* Blurred background cover */}
+        {book.coverUrl && (
+          <div style={{
+            position: 'absolute',
+            inset: '-20px',
+            backgroundImage: `url(${book.coverUrl})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            filter: 'blur(30px) brightness(0.3)',
+            transform: 'scale(1.1)',
+          }} />
+        )}
 
-        {/* Info */}
-        <div style={{ flex: 1, minWidth: '260px' }}>
+        {/* Gradient overlay */}
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          background: book.coverUrl
+            ? 'linear-gradient(to bottom, rgba(13,13,13,0.4) 0%, rgba(13,13,13,0.95) 100%)'
+            : 'linear-gradient(135deg, rgba(6,182,212,0.1) 0%, rgba(13,13,13,0.85) 100%)',
+        }} />
+
+        {/* Content */}
+        <div style={{
+          position: 'relative',
+          padding: '40px 24px 32px',
+          display: 'flex',
+          gap: '24px',
+          alignItems: 'flex-end',
+          flexWrap: 'wrap',
+        }}>
+          {/* Cover image */}
+          <div style={{
+            position: 'relative',
+            width: '160px',
+            height: '230px',
+            borderRadius: '10px',
+            overflow: 'hidden',
+            flexShrink: 0,
+            boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+            border: '2px solid rgba(255,255,255,0.1)',
+          }}>
+            {book.coverUrl ? (
+              <Image src={book.coverUrl} alt={book.title} fill style={{ objectFit: 'cover' }} sizes="160px" />
+            ) : (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                height: '100%',
+                fontSize: '60px',
+                backgroundColor: '#1a1a2e',
+              }}>
+                📖
+              </div>
+            )}
+          </div>
+
+          {/* Info */}
+          <div style={{ flex: 1, minWidth: '260px' }}>
           {/* Title row */}
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '6px' }}>
             {editingTitle ? (
@@ -263,7 +331,19 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
 
           {/* Chapter progress */}
           <div style={{ marginBottom: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+              <button
+                onClick={async () => {
+                  const newCh = Math.max(0, book.currentChapter - 1)
+                  setChapterInput(newCh)
+                  await updateBook(parseInt(id), { currentChapter: newCh } as any)
+                  loadBook()
+                }}
+                title="Previous chapter"
+                style={{ width: '24px', height: '24px', borderRadius: '50%', backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}
+              >
+                −
+              </button>
               {editingChapter ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Ch.</span>
@@ -280,20 +360,27 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
                   <button onClick={() => setEditingChapter(false)} style={{ ...smallBtnStyle, backgroundColor: 'transparent' }}>✕</button>
                 </div>
               ) : (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '15px', fontWeight: 600 }}>
-                    Ch. {book.currentChapter}
-                    {book.totalChapters > 0 && <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}> / {book.totalChapters}</span>}
-                  </span>
-                  <button onClick={() => setEditingChapter(true)} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '4px', color: 'var(--text-muted)', fontSize: '11px', padding: '2px 8px', cursor: 'pointer' }}>
-                    Edit
-                  </button>
-                  {book.currentChapterUrl && (
-                    <a href={book.currentChapterUrl} target="_blank" rel="noreferrer" style={{ fontSize: '11px', color: 'var(--accent)' }}>
-                      ↗ Open chapter
-                    </a>
-                  )}
-                </div>
+                <span style={{ fontSize: '15px', fontWeight: 600, cursor: 'pointer', minWidth: '120px' }} onClick={() => setEditingChapter(true)}>
+                  Ch. {book.currentChapter}
+                  {book.totalChapters > 0 && <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}> / {book.totalChapters}</span>}
+                </span>
+              )}
+              <button
+                onClick={async () => {
+                  const newCh = Math.min(book.totalChapters || book.currentChapter + 1, book.currentChapter + 1)
+                  setChapterInput(newCh)
+                  await updateBook(parseInt(id), { currentChapter: newCh } as any)
+                  loadBook()
+                }}
+                title="Next chapter"
+                style={{ width: '24px', height: '24px', borderRadius: '50%', backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}
+              >
+                +
+              </button>
+              {book.currentChapterUrl && (
+                <a href={book.currentChapterUrl} target="_blank" rel="noreferrer" style={{ fontSize: '11px', color: 'var(--accent)' }}>
+                  ↗ Open chapter
+                </a>
               )}
             </div>
             {book.totalChapters > 0 && (
@@ -331,10 +418,7 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
           )}
         </div>
 
-        {/* Delete button */}
-        <button onClick={handleDelete} style={{ background: 'none', border: '1px solid var(--status-dropped)', borderRadius: '6px', color: 'var(--status-dropped)', fontSize: '12px', padding: '6px 12px', cursor: 'pointer', alignSelf: 'flex-start' }}>
-          Delete
-        </button>
+        </div>
       </div>
 
       {/* Section tabs */}
@@ -354,10 +438,25 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
                 padding: '10px 16px', border: 'none', cursor: 'pointer',
                 backgroundColor: 'transparent', color: isActive ? '#fff' : 'var(--text-muted)',
                 fontWeight: isActive ? 600 : 400, fontSize: '13px',
-                borderBottom: isActive ? '2px solid var(--accent)' : '2px solid transparent',
+                position: 'relative',
               }}
             >
               {s.label}
+              {isActive && (
+                <motion.div
+                  layoutId="section-indicator"
+                  style={{
+                    position: 'absolute',
+                    bottom: -20,
+                    left: 0,
+                    right: 0,
+                    height: '2px',
+                    backgroundColor: 'var(--accent)',
+                    borderRadius: '1px',
+                  }}
+                  transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+                />
+              )}
             </button>
           )
         })}
@@ -384,33 +483,100 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
             {book.chapters.length === 0 ? (
               <p style={{ color: 'var(--text-dim)', fontSize: '14px' }}>No chapter list available. Add this book with a URL to scrape chapters.</p>
             ) : (
-              <div style={{ maxHeight: '500px', overflowY: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                  <thead>
-                    <tr style={{ borderBottom: '1px solid var(--border)', color: 'var(--text-muted)' }}>
-                      <th style={{ padding: '8px 0', textAlign: 'left', fontWeight: 500, width: '60px' }}>#</th>
-                      <th style={{ padding: '8px 0', textAlign: 'left', fontWeight: 500 }}>Chapter</th>
-                      <th style={{ padding: '8px 0', textAlign: 'right', fontWeight: 500, width: '60px' }}>Link</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {book.chapters.map((ch) => {
-                      const isCurrent = ch.number === book.currentChapter
-                      return (
-                        <tr key={ch.id} style={{
-                          borderBottom: '1px solid rgba(255,255,255,0.04)',
-                          backgroundColor: isCurrent ? 'rgba(99,102,241,0.08)' : 'transparent',
-                        }}>
-                          <td style={{ padding: '6px 0', color: isCurrent ? 'var(--accent)' : 'var(--text-dim)' }}>{ch.number}</td>
-                          <td style={{ padding: '6px 0' }}>{ch.title || `Chapter ${ch.number}`}</td>
-                          <td style={{ padding: '6px 0', textAlign: 'right' }}>
-                            <a href={ch.url} target="_blank" rel="noreferrer" style={{ color: 'var(--accent)', fontSize: '11px' }}>↗</a>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
+              <div>
+                {(() => {
+                  // Group chapters into 50-chapter batches
+                  const groups: { start: number; end: number; chapters: typeof book.chapters }[] = []
+                  for (let i = 0; i < book.chapters.length; i += 50) {
+                    const batch = book.chapters.slice(i, i + 50)
+                    const start = batch[0].number
+                    const end = batch[batch.length - 1].number
+                    groups.push({ start, end, chapters: batch })
+                  }
+
+                  return groups.map((group, groupIdx) => {
+                    const isExpanded = expandedGroups.has(groupIdx)
+                    const groupContainsCurrent = book.currentChapter >= group.start && book.currentChapter <= group.end
+
+                    return (
+                      <div key={groupIdx} style={{ marginBottom: '4px' }}>
+                        {/* Group header */}
+                        <button
+                          onClick={() => {
+                            setExpandedGroups(prev => {
+                              const next = new Set(prev)
+                              if (next.has(groupIdx)) next.delete(groupIdx)
+                              else next.add(groupIdx)
+                              return next
+                            })
+                          }}
+                          style={{
+                            width: '100%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '10px 12px',
+                            backgroundColor: groupContainsCurrent ? 'var(--accent-bg)' : 'var(--bg-card)',
+                            border: '1px solid var(--border)',
+                            borderRadius: '6px',
+                            color: groupContainsCurrent ? 'var(--accent)' : 'var(--text)',
+                            fontSize: '13px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            marginBottom: isExpanded ? '4px' : 0,
+                          }}
+                        >
+                          <span>Chapters {group.start}–{group.end}</span>
+                          <motion.span
+                            animate={{ rotate: isExpanded ? 180 : 0 }}
+                            transition={{ duration: 0.2 }}
+                            style={{ fontSize: '12px', display: 'inline-block' }}
+                          >
+                            ▼
+                          </motion.span>
+                        </button>
+
+                        {/* Expanded content */}
+                        <AnimatePresence>
+                          {isExpanded && (
+                            <motion.div
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: 'auto', opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              transition={{ duration: 0.25 }}
+                              style={{ overflow: 'hidden' }}
+                            >
+                              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', marginBottom: '4px' }}>
+                                <tbody>
+                                  {group.chapters.map((ch) => {
+                                    const isCurrent = ch.number === book.currentChapter
+                                    return (
+                                      <tr key={ch.id} style={{
+                                        borderBottom: '1px solid rgba(255,255,255,0.04)',
+                                        backgroundColor: isCurrent ? 'var(--accent-bg)' : 'transparent',
+                                      }}>
+                                        <td style={{ padding: '6px 12px', width: '50px' }}>
+                                          <a href={ch.url} target="_blank" rel="noreferrer" style={{ color: isCurrent ? 'var(--accent)' : 'var(--text-dim)', textDecoration: 'none', cursor: 'pointer' }}>
+                                            {ch.number}
+                                          </a>
+                                        </td>
+                                        <td style={{ padding: '6px 12px' }}>
+                                          <a href={ch.url} target="_blank" rel="noreferrer" style={{ color: isCurrent ? 'var(--accent)' : 'var(--text)', textDecoration: 'none', cursor: 'pointer' }}>
+                                            {ch.title || `Chapter ${ch.number}`}
+                                          </a>
+                                        </td>
+                                      </tr>
+                                    )
+                                  })}
+                                </tbody>
+                              </table>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    )
+                  })
+                })()}
               </div>
             )}
           </div>
@@ -492,6 +658,7 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
         )}
       </div>
     </div>
+    </PageTransition>
   )
 }
 

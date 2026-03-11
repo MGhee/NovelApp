@@ -62,13 +62,14 @@ export default function BookCard({ book, onDeleted, onUpdated }: BookCardProps) 
           borderRadius: '10px',
           overflow: 'hidden',
           cursor: 'pointer',
-          transition: 'border-color 0.15s, transform 0.15s',
-          transform: hover ? 'translateY(-2px)' : 'none',
-          width: '160px',
+          transition: 'border-color 0.15s, transform 0.15s, box-shadow 0.15s',
+          transform: hover ? 'translateY(-4px)' : 'none',
+          boxShadow: hover ? `0 8px 24px ${hover ? 'var(--accent-glow)' : 'transparent'}` : 'none',
+          width: '210px',
         }}
       >
         {/* Cover */}
-        <div style={{ position: 'relative', width: '100%', height: '220px', backgroundColor: '#1a1a2e' }}>
+        <div style={{ position: 'relative', width: '100%', height: '280px', backgroundColor: '#1a1a2e' }}>
           {book.coverUrl ? (
             <Image
               src={book.coverUrl}
@@ -131,15 +132,38 @@ export default function BookCard({ book, onDeleted, onUpdated }: BookCardProps) 
         </div>
 
         {/* Info */}
-        <div style={{ padding: '8px' }}>
-          <div className="line-clamp-2" style={{ fontSize: '12px', fontWeight: 600, marginBottom: '2px', lineHeight: 1.3 }}>
+        <div style={{ padding: '10px 12px', height: '110px', display: 'flex', flexDirection: 'column' }}>
+          <div className="line-clamp-2" style={{ fontSize: '13px', fontWeight: 600, marginBottom: '2px', lineHeight: 1.3, minHeight: '34px' }}>
             {book.title}
           </div>
-          {book.author && (
-            <div className="line-clamp-1" style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px' }}>
-              {book.author}
-            </div>
-          )}
+          <div style={{ minHeight: '16px', marginBottom: '4px' }}>
+            {book.author && (
+              <div className="line-clamp-1" style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                {book.author}
+              </div>
+            )}
+            {!book.author && <span style={{ fontSize: '11px', color: 'transparent' }}>‌</span>}
+          </div>
+
+          {/* Genre tags */}
+          <div style={{ minHeight: '22px', display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: '6px' }}>
+            {book.genre && (
+              <>
+                {book.genre.split(',').slice(0, 2).map((g) => (
+                  <span key={g.trim()} style={{
+                    fontSize: '9px',
+                    padding: '1px 6px',
+                    borderRadius: '3px',
+                    backgroundColor: 'var(--genre-bg)',
+                    color: 'var(--genre-text)',
+                    whiteSpace: 'nowrap',
+                  }}>
+                    {g.trim()}
+                  </span>
+                ))}
+              </>
+            )}
+          </div>
 
           {/* Chapter progress */}
           <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
@@ -151,8 +175,8 @@ export default function BookCard({ book, onDeleted, onUpdated }: BookCardProps) 
           </div>
 
           {/* Progress bar */}
-          {book.totalChapters > 0 && (
-            <div style={{ height: '3px', backgroundColor: 'var(--border)', borderRadius: '2px' }}>
+          <div style={{ height: '3px', backgroundColor: 'var(--border)', borderRadius: '2px', marginTop: 'auto' }}>
+            {book.totalChapters > 0 && (
               <div style={{
                 height: '100%',
                 width: `${progress}%`,
@@ -160,8 +184,8 @@ export default function BookCard({ book, onDeleted, onUpdated }: BookCardProps) 
                 borderRadius: '2px',
                 transition: 'width 0.3s',
               }} />
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
     </Link>
