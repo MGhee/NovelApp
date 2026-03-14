@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { scrapeBook } from '@/lib/scraper'
+import type { ScrapeResult } from '@/lib/types'
 
 /**
  * POST /api/sync/push
@@ -87,7 +88,7 @@ export async function POST(req: NextRequest) {
           const totalChapterNum = typeof androidBook.totalChapters === 'string' ? parseInt(androidBook.totalChapters, 10) : (androidBook.totalChapters || 0)
 
           // Scrape book for cover, description, and chapters
-          let scrapedData: ReturnType<typeof scrapeBook> | null = null
+          let scrapedData: ScrapeResult | null = null
           try {
             scrapedData = await scrapeBook(siteUrl)
             console.log(`[Sync] Scraped ${title}: got ${scrapedData.chapters?.length || 0} chapters`)
