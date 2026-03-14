@@ -1,4 +1,3 @@
-import { connect, devices } from 'puppeteer-real-browser'
 import type { Browser, Page } from 'puppeteer'
 
 let browserInstance: Browser | null = null
@@ -13,6 +12,8 @@ async function getBrowser(): Promise<Browser> {
   if (browserPromise) return browserPromise
 
   browserPromise = (async () => {
+    // Lazy import: only load puppeteer when actually needed
+    const { connect } = await import('puppeteer-real-browser')
     const result = await connect({
       headless: false, // Real browser required for strict Cloudflare
       args: [
