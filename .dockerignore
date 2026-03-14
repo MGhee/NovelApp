@@ -1,0 +1,13 @@
+node_modules
+.next
+.git
+dev.db
+extension
+*.md
+.env
+.claude
+.gitignore
+.eslintrc.json
+tsconfig.json
+postcss.config.mjs
+tailwind.config.mjs

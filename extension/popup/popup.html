@@ -10,7 +10,8 @@
     <header>
       <span class="logo">📚</span>
       <span class="title">NovelApp Tracker</span>
-      <a href="http://localhost:3000" target="_blank" class="open-app">Open App ↗</a>
+      <a href="#" target="_blank" class="open-app" data-href="open-app">Open App ↗</a>
+      <a href="settings.html" class="settings-link" title="Settings">⚙️</a>
     </header>
 
     <div id="status-section">
@@ -38,12 +39,13 @@
       </div>
       <div id="app-offline" class="state hidden">
         <div class="no-match-icon">⚠️</div>
-        <p class="no-match-text">NovelApp is not running.<br/>Start it at localhost:3000</p>
+        <p class="no-match-text">NovelApp is not running.</p>
+        <a href="#" target="_blank" class="btn-primary" data-href="offline-link" style="display:inline-block;text-decoration:none;text-align:center;">Open App</a>
       </div>
       <div id="not-novel-site" class="state hidden">
         <div class="no-match-icon">🌐</div>
         <p class="no-match-text">Navigate to a novel reading site to start tracking.</p>
-        <a href="http://localhost:3000" target="_blank" class="btn-primary" style="display:inline-block;text-decoration:none;text-align:center;">Open App</a>
+        <a href="#" target="_blank" class="btn-primary" data-href="open-app" style="display:inline-block;text-decoration:none;text-align:center;">Open App</a>
       </div>
     </div>
   </div>

@@ -1,5 +1,3 @@
-const APP_URL = 'http://localhost:3000'
-
 const STATUS_LABELS = {
   READING: 'Reading',
   COMPLETED: 'Completed',
@@ -28,6 +26,14 @@ function extractBookUrl(chUrl) {
 
 async function init() {
   showState('loading')
+
+  // Load configured app URL from storage
+  const { appUrl } = await chrome.storage.sync.get({ appUrl: 'http://localhost:3000' })
+  const APP_URL = appUrl
+
+  // Set dynamic links
+  document.querySelector('[data-href="open-app"]').href = APP_URL
+  document.querySelector('[data-href="offline-link"]').href = APP_URL
 
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
   if (!tab?.url) { showState('not-novel-site'); return }

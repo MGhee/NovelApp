@@ -17,7 +17,9 @@
     "https://www.novellive.app/*",
     "https://mangadex.org/*",
     "https://webtoon.com/*",
-    "http://localhost:3000/*"
+    "http://localhost:3000/*",
+    "https://*/*",
+    "http://*/*"
   ],
   "background": {
     "service_worker": "background.js"

@@ -5,6 +5,10 @@ let browserInstance: Browser | null = null
 let browserPromise: Promise<Browser> | null = null
 
 async function getBrowser(): Promise<Browser> {
+  if (process.env.DISABLE_BROWSER_SCRAPING === 'true') {
+    throw new Error('Browser-based scraping is disabled in this environment (e.g., headless server). Protected sites cannot be scraped. Try adding the book manually or scraping from a local development environment.')
+  }
+
   if (browserInstance) return browserInstance
   if (browserPromise) return browserPromise
 

@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  novelapp:
+    build: .
+    container_name: novelapp
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - NODE_ENV=production
+      - DB_PATH=/app/data/novelapp.db
+      - DISABLE_BROWSER_SCRAPING=true
+      - PORT=3000
+    restart: unless-stopped

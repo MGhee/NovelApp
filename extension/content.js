@@ -3,7 +3,8 @@
  * Runs on novel reading sites and reports the current chapter to the local app.
  */
 (async function () {
-  const APP_URL = 'http://localhost:3000'
+  const { appUrl } = await chrome.storage.sync.get({ appUrl: 'http://localhost:3000' })
+  const APP_URL = appUrl
   const currentUrl = window.location.href
   const pageTitle = document.title
 
