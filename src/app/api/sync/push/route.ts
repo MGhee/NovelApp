@@ -25,9 +25,16 @@ export async function POST(req: NextRequest) {
     }
 
     for (const androidBook of androidBooks) {
-      const { siteUrl, title, status, currentChapter, updatedAt } = androidBook
+      const { siteUrl, title, status, currentChapter, updatedAt, chapters: rawAndroidChapters, coverUrl, description } = androidBook
 
-      console.log(`[Sync] Processing book: title=${title}, siteUrl=${siteUrl}, chapter=${currentChapter}`)
+      // Normalize chapters: convert number from string to int
+      const androidChapters = rawAndroidChapters?.map((ch: any) => ({
+        number: typeof ch.number === 'string' ? parseInt(ch.number, 10) : ch.number,
+        title: ch.title || '',
+        url: ch.url,
+      })) || undefined
+
+      console.log(`[Sync] Processing book: title=${title}, siteUrl=${siteUrl}, chapter=${currentChapter}, chapters=${androidChapters?.length || 0}, cover=${coverUrl ? 'yes' : 'no'}`)
 
       if (!siteUrl) {
         result.errors.push(`Book missing siteUrl: ${title}`)
@@ -62,17 +69,25 @@ export async function POST(req: NextRequest) {
 
           console.log(`[Sync] ${title}: android=${currentChapter} (time=${androidTime}), existing=${existing.currentChapter} (time=${existingTime}), androidNewer=${androidIsNewer}, merged=${mergedChapter}`)
 
-          // Update with merged data
+          // Update with merged data and chapters if provided
           await prisma.book.update({
             where: { siteUrl },
             data: {
               currentChapter: mergedChapter,
               status: mergedStatus,
+              ...(coverUrl && { coverUrl }),
+              ...(description && { description }),
               updatedAt: syncTime,
+              ...(androidChapters?.length && {
+                chapters: {
+                  deleteMany: {},
+                  createMany: { data: androidChapters },
+                },
+              }),
             },
           })
 
-          console.log(`[Sync] Updated ${title} to chapter ${mergedChapter}`)
+          console.log(`[Sync] Updated ${title} to chapter ${mergedChapter}${androidChapters?.length ? ` with ${androidChapters.length} chapters` : ''}`)
 
           result.merged.push({
             siteUrl,
@@ -87,13 +102,15 @@ export async function POST(req: NextRequest) {
           const chapterNum = typeof currentChapter === 'string' ? parseInt(currentChapter, 10) : currentChapter
           const totalChapterNum = typeof androidBook.totalChapters === 'string' ? parseInt(androidBook.totalChapters, 10) : (androidBook.totalChapters || 0)
 
-          // Scrape book for cover, description, and chapters
+          // Prefer chapters from Android; if not available, scrape
           let scrapedData: ScrapeResult | null = null
-          try {
-            scrapedData = await scrapeBook(siteUrl)
-            console.log(`[Sync] Scraped ${title}: got ${scrapedData.chapters?.length || 0} chapters`)
-          } catch (scrapeErr) {
-            console.warn(`[Sync] Failed to scrape ${title}:`, scrapeErr instanceof Error ? scrapeErr.message : 'Unknown error')
+          if (!androidChapters?.length) {
+            try {
+              scrapedData = await scrapeBook(siteUrl)
+              console.log(`[Sync] Scraped ${title}: got ${scrapedData.chapters?.length || 0} chapters`)
+            } catch (scrapeErr) {
+              console.warn(`[Sync] Failed to scrape ${title}:`, scrapeErr instanceof Error ? scrapeErr.message : 'Unknown error')
+            }
           }
 
           await prisma.book.create({
@@ -102,16 +119,16 @@ export async function POST(req: NextRequest) {
               siteUrl,
               status: status || 'READING',
               currentChapter: chapterNum || 0,
-              totalChapters: scrapedData?.totalChapters || totalChapterNum || 0,
-              coverUrl: scrapedData?.coverUrl || androidBook.coverUrl || null,
-              description: scrapedData?.description || androidBook.description || null,
+              totalChapters: androidChapters?.length ? androidChapters.length : (scrapedData?.totalChapters || totalChapterNum || 0),
+              coverUrl: scrapedData?.coverUrl || coverUrl || null,
+              description: scrapedData?.description || description || null,
               genre: scrapedData?.genre || null,
               author: scrapedData?.author || null,
               isFavorite: false, // Android doesn't have favorites
               yearRead: null, // Android doesn't track year read
-              chapters: scrapedData?.chapters?.length
-                ? { createMany: { data: scrapedData.chapters } }
-                : undefined,
+              chapters: androidChapters?.length
+                ? { createMany: { data: androidChapters } }
+                : (scrapedData?.chapters?.length ? { createMany: { data: scrapedData.chapters } } : undefined),
               updatedAt: syncTime,
             },
           })
