@@ -1,3 +1,4 @@
+import 'server-only'
 import * as cheerio from 'cheerio'
 import { withPage } from './browser'
 import type { ScrapeResult } from '@/lib/types'

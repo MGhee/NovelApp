@@ -10,7 +10,26 @@
       "WebSearch",
       "WebFetch(domain:www.wuxiaworld.com)",
       "WebFetch(domain:www.webnovel.com)",
-      "WebFetch(domain:www.royalroad.com)"
+      "WebFetch(domain:www.royalroad.com)",
+      "Bash(curl -s \"http://localhost:3001/api/search?q=martial\")",
+      "Bash(curl -s \"https://readnovelfull.com/search?keyword=martial\")",
+      "Read(//b//**)",
+      "Bash(npx create-expo-app@latest NovelReader --template)",
+      "Bash(npx -y create-expo-app@latest --template blank-typescript NovelReader)",
+      "Bash(find B:/WebnovelReader/tooling/application_workers/ -name *.kt -maxdepth 6)",
+      "Bash(find B:/WebnovelReader/tooling/backup_create/ -name *.kt -maxdepth 6)",
+      "Bash(find B:/WebnovelReader/tooling/backup_restore/ -name *.kt -maxdepth 6)",
+      "Bash(find B:/WebnovelReader/app/src/ -name Theme* -o -name Color* -o -name AppTheme*)",
+      "Bash(find B:/WebnovelReader/coreui/src/ -name Theme* -o -name Color*)",
+      "Bash(find B:/WebnovelReader/ -path */theme/* -name *.kt -o -path */ui/theme/* -name *.kt)",
+      "Bash(find B:/WebnovelReader/features/settings/ -name *.kt -maxdepth 6)",
+      "Bash(find B:/WebnovelReader/features/reader/ -name *.kt -type f)",
+      "Bash(find B:/WebnovelReader/scraper -path */res/values/*)",
+      "Bash(grep -r 'package my.noveldokusha' B:WebnovelReader --include=*.kt --include=*.xml --include=*.gradle.kts --include=*.gradle)"
+    ],
+    "additionalDirectories": [
+      "B:\\WebnovelReader\\app",
+      "B:\\WebnovelReader"
     ]
   }
 }

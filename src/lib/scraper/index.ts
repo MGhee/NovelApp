@@ -1,3 +1,4 @@
+import 'server-only'
 import type { ScrapeResult } from '@/lib/types'
 import { extractBookUrl, extractChapterFromUrl, normalizeUrl } from '@/lib/utils'
 import { scrapeReadNovelFull } from './readnovelfull'
