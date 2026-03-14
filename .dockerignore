@@ -8,6 +8,5 @@ extension
 .claude
 .gitignore
 .eslintrc.json
-tsconfig.json
 postcss.config.mjs
 tailwind.config.mjs
