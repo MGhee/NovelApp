@@ -8,7 +8,7 @@ const BASE = 'https://hangukhub.com'
 /**
  * Clean chapter title by removing prefixes, chapter numbers, and date info.
  */
-function cleanChapterTitle(rawTitle: string): string {
+function cleanChapterTitle(rawTitle: string): string | null {
   if (!rawTitle) return null
 
   let title = rawTitle
@@ -120,7 +120,7 @@ export function parseHangukHub(html: string, url: string): ScrapeResult {
       .get().filter(Boolean).slice(0, 6).join(', ') || null
 
   // Chapters listed newest-first; collect all, then sort
-  const rawChapters: Array<{ slug: string; title: string; url: string }> = []
+  const rawChapters: Array<{ slug: string; title: string | null; url: string }> = []
 
   $('a[href*="/series/"][href*="chapter"], a[href*="/series/"][href*="part-2-chapter"]').each((_, el) => {
     const href = $(el).attr('href') || ''
