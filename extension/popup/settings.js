@@ -8,7 +8,7 @@ const saveBtn = document.getElementById('save-btn')
 const resetBtn = document.getElementById('reset-btn')
 const statusMessage = document.getElementById('status-message')
 
-const DEFAULT_APP_URL = 'http://localhost:3000'
+const DEFAULT_APP_URL = 'https://novelapp.viktorbarzin.me'
 
 const apiKeyInput = document.getElementById('api-key')
 const DEFAULT_API_KEY = ''

@@ -24,7 +24,7 @@ const STATUS_OPTIONS = [
   { value: 'READING', label: 'Reading' },
   { value: 'PLAN_TO_READ', label: 'Plan to Read' },
   { value: 'COMPLETED', label: 'Completed' },
-  { value: 'DROPPED', label: 'Dropped' },
+  { value: 'DROPPED', label: 'Waiting' },
 ]
 
 export default function AddBookModal({ onClose, onAdded, initialUrl = '' }: AddBookModalProps) {

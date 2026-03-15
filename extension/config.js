@@ -3,4 +3,4 @@
  * Default values for app URL
  */
 
-const DEFAULT_APP_URL = 'http://localhost:3000'
+const DEFAULT_APP_URL = 'https://novelapp.viktorbarzin.me'

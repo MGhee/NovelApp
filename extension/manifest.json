@@ -18,6 +18,7 @@
     "https://mangadex.org/*",
     "https://webtoon.com/*",
     "http://localhost:3000/*",
+    "https://novelapp.viktorbarzin.me/*",
     "https://*/*",
     "http://*/*"
   ],

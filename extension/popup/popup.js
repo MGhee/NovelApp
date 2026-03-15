@@ -2,7 +2,7 @@ const STATUS_LABELS = {
   READING: 'Reading',
   COMPLETED: 'Completed',
   PLAN_TO_READ: 'Plan to Read',
-  DROPPED: 'Dropped',
+  DROPPED: 'Waiting',
 }
 
 function showState(id) {
@@ -28,7 +28,7 @@ async function init() {
   showState('loading')
 
   // Load configured app URL and API key from storage
-  const { appUrl, apiKey } = await chrome.storage.sync.get({ appUrl: 'http://localhost:3000', apiKey: '' })
+  const { appUrl, apiKey } = await chrome.storage.sync.get({ appUrl: 'https://novelapp.viktorbarzin.me', apiKey: '' })
   const APP_URL = appUrl
 
   // Set dynamic links

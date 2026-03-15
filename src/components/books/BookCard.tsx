@@ -17,7 +17,7 @@ const STATUS_LABELS: Record<string, string> = {
   READING: 'Reading',
   COMPLETED: 'Done',
   PLAN_TO_READ: 'Plan',
-  DROPPED: 'Dropped',
+  DROPPED: 'Waiting',
 }
 
 interface BookCardProps {

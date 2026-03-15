@@ -1,16 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: 'standalone',
-  experimental: {
-    serverComponentsExternalPackages: [
-      'puppeteer',
-      'puppeteer-real-browser',
-      'puppeteer-core',
-      'xvfb',
-      'sleep',
-    ],
-  },
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: '**' },
