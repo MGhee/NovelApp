@@ -1,11 +1,19 @@
 "use client"
-import React, { useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import React, { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 
 export default function LoginPage() {
   const router = useRouter()
-  const params = useSearchParams()
-  const from = params?.get('from') || '/'
+  const [from, setFrom] = useState('/')
+
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search)
+      setFrom(params.get('from') || '/')
+    } catch (e) {
+      setFrom('/')
+    }
+  }, [])
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
