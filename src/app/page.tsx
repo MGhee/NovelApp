@@ -44,6 +44,8 @@ function HomePageInner() {
   const [activeTab, setActiveTab] = useState(() => searchParams.get('tab') || 'READING')
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [page, setPage] = useState(1)
+  const LIMIT = 30
   const addUrl = searchParams.get('add') || ''
   const [showAddModal, setShowAddModal] = useState(() => !!searchParams.get('add'))
   const [yearFilter, setYearFilter] = useState<number | null>(null)
@@ -53,11 +55,18 @@ function HomePageInner() {
     return () => clearTimeout(t)
   }, [search])
 
+
   const isFavorites = activeTab === 'FAVORITES'
+  // reset page when filters change
+  useEffect(() => {
+    setPage(1)
+  }, [activeTab, debouncedSearch, isFavorites])
   const { books, loading, error, refetch } = useBooks({
     status: isFavorites ? undefined : activeTab,
     search: debouncedSearch || undefined,
     favorites: isFavorites ? true : undefined,
+    page,
+    limit: LIMIT,
   })
 
   const years = (activeTab === 'COMPLETED' || isFavorites)
@@ -205,7 +214,16 @@ function HomePageInner() {
           )}
 
           {/* Book grid */}
-          <div style={{ padding: '12px 24px 40px', flex: 1, overflow: 'auto' }}>
+          <div
+            style={{ padding: '12px 24px 40px', flex: 1, overflow: 'auto' }}
+            onScroll={(e) => {
+              const el = e.currentTarget as HTMLDivElement
+              if (loading) return
+              if (el.scrollHeight - el.scrollTop - el.clientHeight < 300) {
+                setPage(p => p + 1)
+              }
+            }}
+          >
             {loading && (
               <div style={{ color: 'var(--text-muted)', fontSize: '14px', padding: '60px', textAlign: 'center' }}>
                 Loading…
@@ -253,6 +271,10 @@ function HomePageInner() {
                   </motion.div>
                 ))}
               </motion.div>
+            )}
+            {/* loading more indicator */}
+            {loading && page > 1 && (
+              <div style={{ textAlign: 'center', padding: '12px', color: 'var(--text-muted)' }}>Loading more…</div>
             )}
           </div>
 

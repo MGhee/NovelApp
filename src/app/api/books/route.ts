@@ -2,11 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { normalizeUrl } from '@/lib/utils'
 
+type CacheEntry = { expires: number; books: any[]; total: number }
+const cache = new Map<string, CacheEntry>()
+const CACHE_TTL = 5000 // ms
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const status = searchParams.get('status')
   const search = searchParams.get('search')
   const favorites = searchParams.get('favorites') === 'true'
+  const limit = Math.min(200, parseInt(searchParams.get('limit') || '50', 10) || 50)
+  const offset = Math.max(0, parseInt(searchParams.get('offset') || '0', 10) || 0)
 
   const where: Record<string, unknown> = {}
   if (status) where.status = status
@@ -15,9 +21,25 @@ export async function GET(req: NextRequest) {
     where.title = { contains: search }
   }
 
+  const cacheKey = JSON.stringify({ where, limit, offset })
+  const now = Date.now()
+  const existing = cache.get(cacheKey)
+  if (existing && existing.expires > now) {
+    const res = NextResponse.json(existing.books)
+    res.headers.set('X-Total-Count', String(existing.total))
+    res.headers.set('X-Cache', 'HIT')
+    return res
+  }
+
+  const start = Date.now()
+
+  const total = await prisma.book.count({ where })
+
   const books = await prisma.book.findMany({
     where,
     orderBy: { updatedAt: 'desc' },
+    take: limit,
+    skip: offset,
     select: {
       id: true,
       title: true,
@@ -35,7 +57,17 @@ export async function GET(req: NextRequest) {
     },
   })
 
-  return NextResponse.json(books)
+  const duration = Date.now() - start
+  const entry: CacheEntry = { expires: now + CACHE_TTL, books, total }
+  cache.set(cacheKey, entry)
+
+  const res = NextResponse.json(books)
+  res.headers.set('X-Total-Count', String(total))
+  res.headers.set('X-Limit', String(limit))
+  res.headers.set('X-Offset', String(offset))
+  res.headers.set('X-Query-Duration-ms', String(duration))
+  res.headers.set('X-Cache', 'MISS')
+  return res
 }
 
 export async function POST(req: NextRequest) {
