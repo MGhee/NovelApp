@@ -10,15 +10,20 @@ const statusMessage = document.getElementById('status-message')
 
 const DEFAULT_APP_URL = 'http://localhost:3000'
 
+const apiKeyInput = document.getElementById('api-key')
+const DEFAULT_API_KEY = ''
+
 // Load current settings on page open
 async function loadSettings() {
-  const { appUrl } = await chrome.storage.sync.get({ appUrl: DEFAULT_APP_URL })
+  const { appUrl, apiKey } = await chrome.storage.sync.get({ appUrl: DEFAULT_APP_URL, apiKey: DEFAULT_API_KEY })
   appUrlInput.value = appUrl
+  if (apiKeyInput) apiKeyInput.value = apiKey || ''
 }
 
 // Save settings
 saveBtn.addEventListener('click', async () => {
   const url = appUrlInput.value.trim()
+  const apiKey = apiKeyInput ? apiKeyInput.value.trim() : ''
 
   // Validate URL
   if (!url) {
@@ -35,16 +40,18 @@ saveBtn.addEventListener('click', async () => {
   const cleanUrl = url.replace(/\/$/, '')
 
   // Save to storage
-  await chrome.storage.sync.set({ appUrl: cleanUrl })
+  await chrome.storage.sync.set({ appUrl: cleanUrl, apiKey })
   appUrlInput.value = cleanUrl
+  if (apiKeyInput) apiKeyInput.value = apiKey
 
   showStatus('Settings saved successfully!', 'success')
 })
 
 // Reset to default
 resetBtn.addEventListener('click', async () => {
-  await chrome.storage.sync.remove('appUrl')
+  await chrome.storage.sync.remove(['appUrl', 'apiKey'])
   appUrlInput.value = DEFAULT_APP_URL
+  if (apiKeyInput) apiKeyInput.value = DEFAULT_API_KEY
   showStatus('Reset to default settings', 'success')
 })
 

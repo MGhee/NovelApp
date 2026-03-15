@@ -27,8 +27,8 @@ function extractBookUrl(chUrl) {
 async function init() {
   showState('loading')
 
-  // Load configured app URL from storage
-  const { appUrl } = await chrome.storage.sync.get({ appUrl: 'http://localhost:3000' })
+  // Load configured app URL and API key from storage
+  const { appUrl, apiKey } = await chrome.storage.sync.get({ appUrl: 'http://localhost:3000', apiKey: '' })
   const APP_URL = appUrl
 
   // Set dynamic links
@@ -46,7 +46,9 @@ async function init() {
   // Check if app is running and if this page matches a book
   try {
     const matchUrl = `${APP_URL}/api/extension/match?url=${encodeURIComponent(url)}`
-    const res = await fetch(matchUrl, { signal: AbortSignal.timeout(3000) })
+    const headers = {}
+    if (apiKey && apiKey.trim()) headers['Authorization'] = `Bearer ${apiKey.trim()}`
+    const res = await fetch(matchUrl, { signal: AbortSignal.timeout(3000), headers })
     const { match } = await res.json()
 
     if (match) {

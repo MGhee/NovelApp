@@ -29,7 +29,8 @@
     ],
     "additionalDirectories": [
       "B:\\WebnovelReader\\app",
-      "B:\\WebnovelReader"
+      "B:\\WebnovelReader",
+      "B:\\NovelReader\\data\\src\\main\\java\\my\\novelreader\\data"
     ]
   }
 }
