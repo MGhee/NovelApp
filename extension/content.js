@@ -3,7 +3,11 @@
  * Runs on novel reading sites and reports the current chapter to the local app.
  */
 (async function () {
-  const { appUrl, apiKey } = await chrome.storage.sync.get({ appUrl: 'https://novelapp.viktorbarzin.me', apiKey: '' })
+  const { appUrl, apiKey, autoRedirect } = await chrome.storage.sync.get({
+    appUrl: 'https://novelapp.viktorbarzin.me',
+    apiKey: '',
+    autoRedirect: true,
+  })
   const APP_URL = appUrl
   const currentUrl = window.location.href
   const pageTitle = document.title
@@ -89,17 +93,133 @@
     })
 
     console.debug('extension: update response data=', data)
-
-    // 3. Notify background service worker
-    chrome.runtime.sendMessage({
-      type: 'CHAPTER_UPDATED',
-      updated: data?.updated || false,
-      bookTitle: data?.book?.title || null,
-      chapterNumber,
+    console.debug('extension: redirect check', {
+      hasUrl: !!data?.redirectUrl,
+      autoRedirect,
+      serverChapter: data?.serverChapter,
+      currentChapter: chapterNumber,
+      shouldRedirect: data?.redirectUrl && autoRedirect && data.serverChapter > chapterNumber
     })
+
+    // 3. Check if redirect is needed
+    if (data?.redirectUrl && autoRedirect && data.serverChapter > chapterNumber) {
+      console.debug('extension: initiating redirect to', data.redirectUrl)
+      // Notify background for redirect badge
+      chrome.runtime.sendMessage({
+        type: 'CHAPTER_REDIRECT',
+        bookTitle: data?.book?.title || null,
+        fromChapter: chapterNumber,
+        toChapter: data.serverChapter,
+      })
+
+      // Show redirect bar with countdown
+      showRedirectBar(data.book?.title, data.serverChapter, data.redirectUrl)
+    } else {
+      // Normal flow: just notify about update
+      chrome.runtime.sendMessage({
+        type: 'CHAPTER_UPDATED',
+        updated: data?.updated || false,
+        bookTitle: data?.book?.title || null,
+        chapterNumber,
+      })
+    }
   } catch {
     // App not running or network error — notify background
     console.error('extension: network error while sending update')
     chrome.runtime.sendMessage({ type: 'APP_OFFLINE' })
+  }
+
+  function showRedirectBar(bookTitle, targetChapter, redirectUrl) {
+    console.debug('extension: showRedirectBar called with', { bookTitle, targetChapter, redirectUrl })
+
+    const bar = document.createElement('div')
+    bar.id = 'novelapp-redirect-notification'
+    let countdown = 5
+    let timerInterval = null
+
+    const updateCountdown = () => {
+      const button = bar.querySelector('#novelapp-go-now')
+      if (button) {
+        button.textContent = `Go (${countdown}s)`
+        console.debug('extension: countdown updated to', countdown)
+      }
+    }
+
+    bar.innerHTML = `
+      <div style="
+        position: fixed;
+        top: 20px;
+        left: 20px !important;
+        right: auto !important;
+        background: #3b82f6;
+        color: white;
+        padding: 24px;
+        border-radius: 12px;
+        z-index: 999999;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        max-width: 350px;
+        min-width: 300px;
+      ">
+        <div style="margin-bottom: 16px; font-size: 16px; line-height: 1.4;">
+          <div style="font-weight: 700; margin-bottom: 6px; font-size: 18px;">Jump to Ch. ${targetChapter}</div>
+          <div style="opacity: 0.95; font-size: 14px;">Redirecting in ${countdown}s...</div>
+        </div>
+        <div style="display: flex; gap: 10px;">
+          <button id="novelapp-stay-here" style="
+            flex: 1;
+            padding: 12px 14px;
+            background: rgba(255,255,255,0.15);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background 0.2s;
+          ">Stay</button>
+          <button id="novelapp-go-now" style="
+            flex: 1;
+            padding: 12px 14px;
+            background: rgba(255,255,255,0.3);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.4);
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: background 0.2s;
+          ">Go (3s)</button>
+        </div>
+      </div>
+    `
+
+    document.body.appendChild(bar)
+    console.debug('extension: redirect notification inserted into DOM')
+
+    const stayBtn = bar.querySelector('#novelapp-stay-here')
+    const goBtn = bar.querySelector('#novelapp-go-now')
+
+    stayBtn.addEventListener('click', () => {
+      console.debug('extension: user clicked Stay Here')
+      clearInterval(timerInterval)
+      bar.remove()
+    })
+
+    goBtn.addEventListener('click', () => {
+      console.debug('extension: user clicked Go Now, navigating to', redirectUrl)
+      clearInterval(timerInterval)
+      chrome.runtime.sendMessage({ type: 'NAVIGATE_TO_URL', url: redirectUrl })
+    })
+
+    timerInterval = setInterval(() => {
+      countdown--
+      updateCountdown()
+      if (countdown <= 0) {
+        console.debug('extension: countdown finished, redirecting to', redirectUrl)
+        clearInterval(timerInterval)
+        chrome.runtime.sendMessage({ type: 'NAVIGATE_TO_URL', url: redirectUrl })
+      }
+    }, 1000)
   }
 })()

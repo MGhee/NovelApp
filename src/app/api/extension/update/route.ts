@@ -62,9 +62,9 @@ export async function POST(req: NextRequest) {
 
   const book = await prisma.book.findFirst({
     where: { siteUrl: { in: urlCandidates } },
-    select: { id: true, currentChapter: true, currentChapterUrl: true, status: true },
+    select: { id: true, title: true, currentChapter: true, currentChapterUrl: true, status: true },
   })
-  
+
   if (!book) {
     console.debug('/api/extension/update: no matching book for candidates', urlCandidates)
     // Include candidates in response for easier local debugging
@@ -73,10 +73,32 @@ export async function POST(req: NextRequest) {
 
   console.debug('/api/extension/update: found book', { id: book.id, currentChapter: book.currentChapter, incomingChapter: chapterNumber })
 
-  // Accept updates from the extension regardless of whether the incoming
-  // chapter is lower, equal, or higher. The extension is trusted to send
-  // the desired reading progress.
+  // Enforce progress-only-increases invariant
+  if (chapterNumber < book.currentChapter) {
+    // User is behind; don't regress progress but offer redirect to latest chapter
+    // Always look up from Chapter table first (it's authoritative)
+    const chapter = await prisma.chapter.findFirst({
+      where: { bookId: book.id, number: book.currentChapter },
+      select: { url: true },
+    })
+    const redirectUrl = chapter?.url || book.currentChapterUrl || null
 
+    console.debug('/api/extension/update: chapter behind current, offering redirect', {
+      id: book.id,
+      incomingChapter: chapterNumber,
+      currentChapter: book.currentChapter,
+      redirectUrl: !!redirectUrl,
+    })
+
+    return NextResponse.json({
+      updated: false,
+      book: { id: book.id, title: book.title, currentChapter: book.currentChapter },
+      redirectUrl,
+      serverChapter: book.currentChapter,
+    })
+  }
+
+  // Chapter >= current, update normally
   const updated = await prisma.book.update({
     where: { id: book.id },
     data: {
@@ -108,7 +130,7 @@ export async function POST(req: NextRequest) {
     updatedAt: updated.updatedAt.toISOString(),
   })
 
-  return NextResponse.json({ updated: true, book: updated })
+  return NextResponse.json({ updated: true, book: updated, redirectUrl: null })
   } catch (err: any) {
     if (err && (err.code === 'ECONNRESET' || /aborted/i.test(String(err.message || '')))) {
       console.warn('Request aborted (ECONNRESET) in /api/extension/update', err?.stack || err)

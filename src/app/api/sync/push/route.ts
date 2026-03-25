@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { bookEmitter } from '@/lib/events'
 import { scrapeBook } from '@/lib/scraper'
 import type { ScrapeResult } from '@/lib/types'
 
@@ -70,7 +71,7 @@ export async function POST(req: NextRequest) {
           console.log(`[Sync] ${title}: android=${currentChapter} (time=${androidTime}), existing=${existing.currentChapter} (time=${existingTime}), androidNewer=${androidIsNewer}, merged=${mergedChapter}`)
 
           // Update with merged data and chapters if provided
-          await prisma.book.update({
+          const updated = await prisma.book.update({
             where: { siteUrl },
             data: {
               currentChapter: mergedChapter,
@@ -85,9 +86,32 @@ export async function POST(req: NextRequest) {
                 },
               }),
             },
+            select: {
+              id: true,
+              title: true,
+              author: true,
+              coverUrl: true,
+              status: true,
+              type: true,
+              currentChapter: true,
+              currentChapterUrl: true,
+              totalChapters: true,
+              siteUrl: true,
+              genre: true,
+              isFavorite: true,
+              yearRead: true,
+              updatedAt: true,
+            },
           })
 
           console.log(`[Sync] Updated ${title} to chapter ${mergedChapter}${androidChapters?.length ? ` with ${androidChapters.length} chapters` : ''}`)
+
+          // Emit SSE event so connected clients update immediately
+          try {
+            bookEmitter.emit('book_updated', { ...updated, updatedAt: updated.updatedAt.toISOString() })
+          } catch (err) {
+            console.warn('[Sync] Failed to emit book_updated event', err)
+          }
 
           result.merged.push({
             siteUrl,
@@ -113,7 +137,7 @@ export async function POST(req: NextRequest) {
             }
           }
 
-          await prisma.book.create({
+          const created = await prisma.book.create({
             data: {
               title,
               siteUrl,
@@ -131,7 +155,30 @@ export async function POST(req: NextRequest) {
                 : (scrapedData?.chapters?.length ? { createMany: { data: scrapedData.chapters } } : undefined),
               updatedAt: syncTime,
             },
+            select: {
+              id: true,
+              title: true,
+              author: true,
+              coverUrl: true,
+              status: true,
+              type: true,
+              currentChapter: true,
+              currentChapterUrl: true,
+              totalChapters: true,
+              siteUrl: true,
+              genre: true,
+              isFavorite: true,
+              yearRead: true,
+              updatedAt: true,
+            },
           })
+
+          // Emit SSE event for created book
+          try {
+            bookEmitter.emit('book_updated', { ...created, updatedAt: created.updatedAt.toISOString() })
+          } catch (err) {
+            console.warn('[Sync] Failed to emit book_updated event for created book', err)
+          }
 
           result.merged.push({
             siteUrl,
