@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import type { BookSummary, BookDetail } from '@/lib/types'
 
-function useBookEvents(setBooks: React.Dispatch<React.SetStateAction<BookSummary[]>>) {
+function useBookEvents(setBooks: React.Dispatch<React.SetStateAction<BookSummary[]>>, clearCache?: () => void) {
   useEffect(() => {
     if (typeof window === 'undefined') return
     if (typeof setBooks !== 'function') return
@@ -11,12 +11,35 @@ function useBookEvents(setBooks: React.Dispatch<React.SetStateAction<BookSummary
     let es: EventSource | null = null
     try {
       es = new EventSource('/api/books/events')
+
       es.addEventListener('book_updated', (e) => {
         try {
           const updated: BookSummary = JSON.parse((e as MessageEvent).data)
           if (typeof setBooks === 'function') {
             setBooks(prev => prev.map(b => b.id === updated.id ? updated : b))
           }
+          clearCache?.()
+        } catch (_) {
+          // ignore malformed events
+        }
+      })
+
+      es.addEventListener('book_deleted', (e) => {
+        try {
+          const data = JSON.parse((e as MessageEvent).data)
+          if (typeof setBooks === 'function') {
+            setBooks(prev => prev.filter(b => b.id !== data.id))
+          }
+          clearCache?.()
+        } catch (_) {
+          // ignore malformed events
+        }
+      })
+
+      es.addEventListener('book_created', (e) => {
+        try {
+          // For new books, trigger a full refetch since we need server-side filtering
+          clearCache?.()
         } catch (_) {
           // ignore malformed events
         }
@@ -26,7 +49,7 @@ function useBookEvents(setBooks: React.Dispatch<React.SetStateAction<BookSummary
     }
 
     return () => { if (es) try { es.close() } catch (_) {} }
-  }, [setBooks])
+  }, [setBooks, clearCache])
 }
 
 type BooksFilter = {
@@ -44,6 +67,10 @@ export function useBooks(filter: BooksFilter = {}) {
   const cacheRef = useRef<Map<string, BookSummary[]>>(new Map())
   const abortRef = useRef<AbortController | null>(null)
   const lastBaseKeyRef = useRef<string | null>(null)
+
+  const clearCache = useCallback(() => {
+    cacheRef.current.clear()
+  }, [])
 
   const fetchBooks = useCallback(async () => {
     setLoading(true)
@@ -110,16 +137,10 @@ export function useBooks(filter: BooksFilter = {}) {
   }, [filter.status, filter.search, filter.favorites, filter.page, filter.limit])
 
   useEffect(() => {
-    // debounce rapid search changes to avoid flooding the server
-    let t: ReturnType<typeof setTimeout> | null = null
-    if (filter.search) {
-      t = setTimeout(() => { fetchBooks() }, 250)
-    } else {
-      fetchBooks()
-    }
-    return () => { if (t) clearTimeout(t) }
-  }, [fetchBooks, filter.search, filter.page, filter.limit])
-  useBookEvents(setBooks)
+    fetchBooks()
+  }, [fetchBooks])
+
+  useBookEvents(setBooks, clearCache)
 
   return { books, loading, error, refetch: fetchBooks, getTotal: () => (fetchBooks as any).total }
 }

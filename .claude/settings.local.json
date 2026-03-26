@@ -25,7 +25,8 @@
       "Bash(find B:/WebnovelReader/features/settings/ -name *.kt -maxdepth 6)",
       "Bash(find B:/WebnovelReader/features/reader/ -name *.kt -type f)",
       "Bash(find B:/WebnovelReader/scraper -path */res/values/*)",
-      "Bash(grep -r 'package my.noveldokusha' B:WebnovelReader --include=*.kt --include=*.xml --include=*.gradle.kts --include=*.gradle)"
+      "Bash(grep -r 'package my.noveldokusha' B:WebnovelReader --include=*.kt --include=*.xml --include=*.gradle.kts --include=*.gradle)",
+      "Read(//b/NovelReader/**)"
     ],
     "additionalDirectories": [
       "B:\\WebnovelReader\\app",

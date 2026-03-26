@@ -1,5 +1,6 @@
 'use client'
 
+import React from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useState } from 'react'
@@ -26,7 +27,7 @@ interface BookCardProps {
   onUpdated: () => void
 }
 
-export default function BookCard({ book, onDeleted, onUpdated }: BookCardProps) {
+function BookCard({ book, onDeleted, onUpdated }: BookCardProps) {
   const [deleting, setDeleting] = useState(false)
   const [hover, setHover] = useState(false)
 
@@ -191,3 +192,18 @@ export default function BookCard({ book, onDeleted, onUpdated }: BookCardProps) 
     </Link>
   )
 }
+
+const arePropsEqual = (prev: BookCardProps, next: BookCardProps) => {
+  return (
+    prev.book.id === next.book.id &&
+    prev.book.currentChapter === next.book.currentChapter &&
+    prev.book.totalChapters === next.book.totalChapters &&
+    prev.book.status === next.book.status &&
+    prev.book.isFavorite === next.book.isFavorite &&
+    prev.book.coverUrl === next.book.coverUrl &&
+    prev.book.updatedAt === next.book.updatedAt &&
+    prev.book.title === next.book.title
+  )
+}
+
+export default (React as any).memo(BookCard, arePropsEqual)

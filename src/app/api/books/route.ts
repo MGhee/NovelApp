@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { normalizeUrl } from '@/lib/utils'
+import { getCache, invalidateCache } from '@/lib/bookListCache'
+import { bookEmitter } from '@/lib/events'
 
-type CacheEntry = { expires: number; books: any[]; total: number }
-const cache = new Map<string, CacheEntry>()
 const CACHE_TTL = 5000 // ms
 
 export async function GET(req: NextRequest) {
@@ -23,6 +23,7 @@ export async function GET(req: NextRequest) {
 
   const cacheKey = JSON.stringify({ where, limit, offset })
   const now = Date.now()
+  const cache = getCache()
   const existing = cache.get(cacheKey)
   if (existing && existing.expires > now) {
     const res = NextResponse.json(existing.books)
@@ -58,8 +59,7 @@ export async function GET(req: NextRequest) {
   })
 
   const duration = Date.now() - start
-  const entry: CacheEntry = { expires: now + CACHE_TTL, books, total }
-  cache.set(cacheKey, entry)
+  cache.set(cacheKey, { expires: now + CACHE_TTL, books, total })
 
   const res = NextResponse.json(books)
   res.headers.set('X-Total-Count', String(total))
@@ -104,6 +104,23 @@ export async function POST(req: NextRequest) {
         : undefined,
     },
     include: { characters: true, customFields: true, chapters: { orderBy: { number: 'asc' } } },
+  })
+
+  invalidateCache()
+  bookEmitter.emit('book_created', {
+    id: book.id,
+    title: book.title,
+    author: book.author,
+    coverUrl: book.coverUrl,
+    status: book.status,
+    type: book.type,
+    currentChapter: book.currentChapter,
+    totalChapters: book.totalChapters,
+    siteUrl: book.siteUrl,
+    genre: book.genre,
+    isFavorite: book.isFavorite,
+    yearRead: book.yearRead,
+    updatedAt: book.updatedAt.toISOString(),
   })
 
   return NextResponse.json(book, { status: 201 })

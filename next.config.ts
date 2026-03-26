@@ -2,20 +2,19 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: 'standalone',
-  experimental: {
-    serverComponentsExternalPackages: [
-      'puppeteer',
-      'puppeteer-real-browser',
-      'puppeteer-core',
-      'xvfb',
-      'sleep',
-    ],
-  },
+  serverExternalPackages: [
+    'puppeteer',
+    'puppeteer-real-browser',
+    'puppeteer-core',
+    'xvfb',
+    'sleep',
+  ],
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: '**' },
       { protocol: 'http', hostname: '**' },
     ],
+    minimumCacheTTL: 604800, // 7 days
   },
   async headers() {
     // If ALLOWED_ORIGIN is set, use it; otherwise fall back to '*'.
@@ -30,6 +29,13 @@ const nextConfig: NextConfig = {
           { key: 'Access-Control-Allow-Origin', value: origin },
           { key: 'Access-Control-Allow-Methods', value: 'GET, POST, PATCH, DELETE, OPTIONS' },
           { key: 'Access-Control-Allow-Headers', value: 'Content-Type, Authorization' },
+          { key: 'Cache-Control', value: 'private, max-age=5, stale-while-revalidate=10' },
+        ],
+      },
+      {
+        source: '/_next/static/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
         ],
       },
     ]

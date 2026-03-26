@@ -2,10 +2,8 @@
 
 import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { motion } from 'framer-motion'
 import BookCard from '@/components/books/BookCard'
 import AddBookModal from '@/components/books/AddBookModal'
-import PageTransition from '@/components/PageTransition'
 import { useBooks } from '@/hooks/useBooks'
 
 const TABS = [
@@ -15,20 +13,6 @@ const TABS = [
   { id: 'DROPPED',      label: 'On Hold',       icon: '⏸',  color: 'var(--status-dropped)' },
   { id: 'FAVORITES',    label: 'Favorites',     icon: '⭐', color: 'var(--star)' },
 ]
-
-const gridVariants = {
-  hidden: {},
-  visible: {
-    transition: {
-      staggerChildren: 0.04,
-    },
-  },
-}
-
-const cardVariants = {
-  hidden: { opacity: 0, y: 16 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.3 } },
-}
 
 export default function HomePage() {
   return (
@@ -76,8 +60,7 @@ function HomePageInner() {
   const filtered = yearFilter ? books.filter((b) => b.yearRead === yearFilter) : books
 
   return (
-    <PageTransition>
-      <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: 'var(--bg)' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: 'var(--bg)' }}>
         {/* Sidebar */}
         <aside style={{
           width: 'var(--sidebar-width)',
@@ -258,19 +241,11 @@ function HomePageInner() {
             )}
 
             {!loading && filtered.length > 0 && (
-              <motion.div
-                key={activeTab}
-                variants={gridVariants}
-                initial="hidden"
-                animate="visible"
-                style={{ display: 'flex', flexWrap: 'wrap', gap: '20px' }}
-              >
+              <div key={activeTab} style={{ display: 'flex', flexWrap: 'wrap', gap: '20px' }}>
                 {filtered.map((book) => (
-                  <motion.div key={book.id} variants={cardVariants}>
-                    <BookCard book={book} onDeleted={refetch} onUpdated={refetch} />
-                  </motion.div>
+                  <BookCard key={book.id} book={book} onDeleted={refetch} onUpdated={refetch} />
                 ))}
-              </motion.div>
+              </div>
             )}
             {/* loading more indicator */}
             {loading && page > 1 && (
@@ -287,7 +262,6 @@ function HomePageInner() {
           )}
         </main>
       </div>
-    </PageTransition>
   )
 }
 

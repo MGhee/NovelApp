@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { bookEmitter } from '@/lib/events'
 import { extractBookUrl, normalizeUrl } from '@/lib/utils'
 import { isAllowed } from '@/lib/rateLimiter'
+import { invalidateCache } from '@/lib/bookListCache'
 
 function buildUrlCandidates(inputUrl: string): string[] {
   const candidates = new Set<string>()
@@ -44,11 +45,6 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    // Basic rate limiting by IP for extension updates
-    const ip = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || req.headers.get('cf-connecting-ip') || 'unknown'
-    if (!isAllowed(`ext-update:${ip}`, 60, 60)) {
-      return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
-    }
   const { siteUrl, chapterNumber, chapterUrl } = await req.json()
   if (!siteUrl || typeof chapterNumber !== 'number') {
     return NextResponse.json({ error: 'siteUrl and chapterNumber are required' }, { status: 400 })
@@ -125,6 +121,7 @@ export async function POST(req: NextRequest) {
     },
   })
 
+  invalidateCache()
   bookEmitter.emit('book_updated', {
     ...updated,
     updatedAt: updated.updatedAt.toISOString(),

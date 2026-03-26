@@ -1,50 +1,74 @@
 "use client"
-import React, { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { signIn } from "next-auth/react"
+import { useSearchParams, useRouter } from "next/navigation"
+import { useEffect, useState, Suspense } from "react"
 
-export default function LoginPage() {
+function LoginPageInner() {
   const router = useRouter()
-  const [from, setFrom] = useState('/')
+  const searchParams = useSearchParams()
+  const [loading, setLoading] = useState(false)
+  const [checkingAuth, setCheckingAuth] = useState(true)
 
   useEffect(() => {
-    try {
-      const params = new URLSearchParams(window.location.search)
-      setFrom(params.get('from') || '/')
-    } catch (e) {
-      setFrom('/')
-    }
-  }, [])
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
+    // Check if already authenticated by trying to fetch a protected route
+    fetch("/api/books?limit=1")
+      .then((res) => {
+        if (res.ok) {
+          // Already authenticated, redirect
+          const from = searchParams.get("from") || "/"
+          router.replace(from)
+        }
+      })
+      .catch(() => {})
+      .finally(() => setCheckingAuth(false))
+  }, [router, searchParams])
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault()
+  if (checkingAuth) {
+    return (
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ color: "var(--text-muted)" }}>Loading…</div>
+      </div>
+    )
+  }
+
+  async function handleGoogleSignIn() {
     setLoading(true)
-    setError('')
-    const res = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password }) })
-    if (res.ok) {
-      router.push(from)
-    } else if (res.status === 401) {
-      setError('Incorrect password')
-    } else {
-      setError('Login failed')
-    }
-    setLoading(false)
+    const from = searchParams.get("from") || "/"
+    await signIn("google", { redirectTo: from })
   }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <form onSubmit={submit} style={{ width: 360, padding: 24, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }}>
-        <h2 style={{ margin: 0, marginBottom: 12 }}>Sign in</h2>
-        <div style={{ marginBottom: 12 }}>
-          <input autoFocus type="password" placeholder="API Key / Password" value={password} onChange={(e) => setPassword(e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 4, background: 'transparent', color: 'inherit' }} />
-        </div>
-        {error && <div style={{ color: 'var(--accent)', marginBottom: 12 }}>{error}</div>}
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button type="submit" disabled={loading} style={{ flex: 1, padding: '8px 12px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: 4 }}>{loading ? 'Signing in…' : 'Sign in'}</button>
-        </div>
-      </form>
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ width: 360, padding: 32, borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)" }}>
+        <h2 style={{ margin: 0, marginBottom: 8, textAlign: "center" }}>NovelShelf</h2>
+        <p style={{ margin: 0, marginBottom: 24, textAlign: "center", color: "var(--text-muted)", fontSize: 12 }}>Reading tracker for web novels</p>
+        <button
+          onClick={handleGoogleSignIn}
+          disabled={loading}
+          style={{
+            width: "100%",
+            padding: "10px 16px",
+            background: "var(--accent)",
+            color: "white",
+            border: "none",
+            borderRadius: 6,
+            fontSize: 14,
+            fontWeight: 600,
+            cursor: loading ? "default" : "pointer",
+            opacity: loading ? 0.7 : 1,
+          }}
+        >
+          {loading ? "Signing in…" : "Sign in with Google"}
+        </button>
+      </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)" }}>Loading…</div>}>
+      <LoginPageInner />
+    </Suspense>
   )
 }

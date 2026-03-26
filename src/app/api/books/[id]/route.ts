@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { bookEmitter } from '@/lib/events'
 import { normalizeUrl } from '@/lib/utils'
+import { invalidateCache } from '@/lib/bookListCache'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -53,6 +54,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     },
   })
 
+  invalidateCache()
   bookEmitter.emit('book_updated', {
     id: book.id,
     title: book.title,
@@ -75,6 +77,9 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
 export async function DELETE(_req: NextRequest, { params }: Params) {
   const { id } = await params
-  await prisma.book.delete({ where: { id: parseInt(id) } })
+  const bookId = parseInt(id)
+  await prisma.book.delete({ where: { id: bookId } })
+  invalidateCache()
+  bookEmitter.emit('book_deleted', { id: bookId })
   return NextResponse.json({ ok: true })
 }

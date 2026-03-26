@@ -7,7 +7,6 @@ import { motion, AnimatePresence } from 'framer-motion'
 import type { BookDetail, BookEvent, Character, CustomField } from '@/lib/types'
 import { updateBook, deleteBook } from '@/hooks/useBooks'
 import { useRouter } from 'next/navigation'
-import PageTransition from '@/components/PageTransition'
 
 const STATUS_COLORS: Record<string, string> = {
   READING: 'var(--status-reading)',
@@ -197,8 +196,7 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
   const progress = book.totalChapters > 0 ? Math.min((book.currentChapter / book.totalChapters) * 100, 100) : 0
 
   return (
-    <PageTransition>
-      <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)' }}>
         {/* Header */}
         <header style={{
           padding: '0 24px', height: '56px', display: 'flex', alignItems: 'center',
@@ -658,7 +656,6 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
         )}
       </div>
     </div>
-    </PageTransition>
   )
 }
 
