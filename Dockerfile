@@ -29,11 +29,13 @@ ENV NODE_ENV=production \
 RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
+# Copy built Next.js app and dependencies
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/package.json ./
 
 EXPOSE 3000
 
-CMD ["node", "server.js"]
+CMD ["npm", "start"]
