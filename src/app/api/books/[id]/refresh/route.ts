@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { scrapeBook } from '@/lib/scraper'
+import { getUserId } from '@/lib/getUserId'
 
 type Params = { params: Promise<{ id: string }> }
 
-export async function POST(_req: NextRequest, { params }: Params) {
+export async function POST(req: NextRequest, { params }: Params) {
+  const userId = await getUserId(req)
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
   const { id } = await params
-  const book = await prisma.book.findUnique({
-    where: { id: parseInt(id) },
+  const book = await prisma.book.findFirst({
+    where: { id: parseInt(id), userId },
     select: { id: true, siteUrl: true },
   })
   if (!book) return NextResponse.json({ error: 'Not found' }, { status: 404 })

@@ -42,9 +42,9 @@ async function main() {
   console.log('🌱 Seeding bookmarked novels...')
 
   for (const bookmark of BOOKMARKS) {
-    // Check if already exists
-    const existing = await prisma.book.findUnique({
-      where: { siteUrl: bookmark.url },
+    // Check if already exists (these legacy books have no userId)
+    const existing = await prisma.book.findFirst({
+      where: { siteUrl: bookmark.url, userId: null },
     })
 
     if (existing) {

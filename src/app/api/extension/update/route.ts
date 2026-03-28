@@ -4,6 +4,7 @@ import { bookEmitter } from '@/lib/events'
 import { extractBookUrl, normalizeUrl } from '@/lib/utils'
 import { isAllowed } from '@/lib/rateLimiter'
 import { invalidateCache } from '@/lib/bookListCache'
+import { getUserId } from '@/lib/getUserId'
 
 function buildUrlCandidates(inputUrl: string): string[] {
   const candidates = new Set<string>()
@@ -38,6 +39,11 @@ function buildUrlCandidates(inputUrl: string): string[] {
 }
 
 export async function POST(req: NextRequest) {
+  const userId = await getUserId(req)
+  if (!userId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   // Basic rate limiting by IP for extension updates
   const ip = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || req.headers.get('cf-connecting-ip') || 'unknown'
   if (!isAllowed(`ext-update:${ip}`, 60, 60)) {
@@ -57,7 +63,7 @@ export async function POST(req: NextRequest) {
   const urlCandidates = buildUrlCandidates(siteUrl)
 
   const book = await prisma.book.findFirst({
-    where: { siteUrl: { in: urlCandidates } },
+    where: { userId, siteUrl: { in: urlCandidates } },
     select: { id: true, title: true, currentChapter: true, currentChapterUrl: true, status: true },
   })
 
@@ -122,7 +128,7 @@ export async function POST(req: NextRequest) {
   })
 
   invalidateCache()
-  bookEmitter.emit('book_updated', {
+  bookEmitter.emit(`book_updated:${userId}`, {
     ...updated,
     updatedAt: updated.updatedAt.toISOString(),
   })

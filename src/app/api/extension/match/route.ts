@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { extractBookUrl } from '@/lib/utils'
+import { getUserId } from '@/lib/getUserId'
 
 function isConnReset(err: any) {
   return err && (err.code === 'ECONNRESET' || /aborted/i.test(String(err.message || '')))
@@ -8,13 +9,16 @@ function isConnReset(err: any) {
 
 export async function GET(req: NextRequest) {
   try {
+    const userId = await getUserId(req)
+    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
     const url = req.nextUrl.searchParams.get('url')
     if (!url) return NextResponse.json({ match: null })
 
     const bookBaseUrl = extractBookUrl(url) || url
 
     const book = await prisma.book.findFirst({
-      where: { siteUrl: bookBaseUrl },
+      where: { userId, siteUrl: bookBaseUrl },
       select: {
         id: true,
         title: true,

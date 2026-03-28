@@ -7,6 +7,27 @@ datasource db {
   provider = "sqlite"
 }
 
+model User {
+  id        String     @id
+  email     String     @unique
+  name      String?
+  picture   String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  books     Book[]
+  apiTokens ApiToken[]
+}
+
+model ApiToken {
+  id         Int       @id @default(autoincrement())
+  token      String    @unique
+  label      String    @default("Default")
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+}
+
 model Book {
   id                Int           @id @default(autoincrement())
   title             String
@@ -16,7 +37,7 @@ model Book {
   genre             String?
   status            Status        @default(PLAN_TO_READ)
   type              BookType      @default(WEB_NOVEL)
-  siteUrl           String?       @unique
+  siteUrl           String?
   currentChapter    Int           @default(0)
   currentChapterUrl String?
   totalChapters     Int           @default(0)
@@ -24,9 +45,13 @@ model Book {
   yearRead          Int?
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
+  userId            String?
+  user              User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
   characters        Character[]
   customFields      CustomField[]
   chapters          Chapter[]
+
+  @@unique([userId, siteUrl])
 }
 
 model Chapter {

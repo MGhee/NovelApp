@@ -3,10 +3,16 @@ import { prisma } from '@/lib/prisma'
 import { normalizeUrl } from '@/lib/utils'
 import { getCache, invalidateCache } from '@/lib/bookListCache'
 import { bookEmitter } from '@/lib/events'
+import { getUserId } from '@/lib/getUserId'
 
 const CACHE_TTL = 5000 // ms
 
 export async function GET(req: NextRequest) {
+  const userId = await getUserId(req)
+  if (!userId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   const { searchParams } = new URL(req.url)
   const status = searchParams.get('status')
   const search = searchParams.get('search')
@@ -14,14 +20,20 @@ export async function GET(req: NextRequest) {
   const limit = Math.min(200, parseInt(searchParams.get('limit') || '50', 10) || 50)
   const offset = Math.max(0, parseInt(searchParams.get('offset') || '0', 10) || 0)
 
-  const where: Record<string, unknown> = {}
+  // Build where clause - allow books owned by user or with no owner (legacy books)
+  const where: any = {}
+
+  // Match books by userId (owned by user or legacy with null userId)
+  where.OR = [
+    { userId: userId },
+    { userId: null }
+  ]
+
   if (status) where.status = status
   if (favorites) where.isFavorite = true
-  if (search) {
-    where.title = { contains: search }
-  }
+  if (search) where.title = { contains: search }
 
-  const cacheKey = JSON.stringify({ where, limit, offset })
+  const cacheKey = JSON.stringify({ userId, where, limit, offset })
   const now = Date.now()
   const cache = getCache()
   const existing = cache.get(cacheKey)
@@ -71,6 +83,11 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const userId = await getUserId(req)
+  if (!userId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   const body = await req.json()
   const { title, author, coverUrl, description, genre, status, type, siteUrl,
     currentChapter, totalChapters, isFavorite, yearRead, chapters, characters, customFields } = body
@@ -81,6 +98,7 @@ export async function POST(req: NextRequest) {
 
   const book = await prisma.book.create({
     data: {
+      userId,
       title,
       author: author || null,
       coverUrl: coverUrl || null,
@@ -107,7 +125,7 @@ export async function POST(req: NextRequest) {
   })
 
   invalidateCache()
-  bookEmitter.emit('book_created', {
+  bookEmitter.emit(`book_created:${userId}`, {
     id: book.id,
     title: book.title,
     author: book.author,

@@ -1,6 +1,8 @@
-import { auth } from "./auth"
+import { auth } from "@/auth"
 import { NextResponse } from "next/server"
-import type { NextRequest } from "next/server"
+import { verifyCookie } from "./lib/auth"
+
+export const runtime = 'nodejs'
 
 const PUBLIC_PATHS = ["/login", "/api/auth"]
 
@@ -61,6 +63,10 @@ export default auth(async (req) => {
   if (session) {
     // Authenticated via OAuth
     const res = NextResponse.next()
+    // Pass user ID to API routes via custom header
+    if (session.user?.id) {
+      res.headers.set("X-User-Id", session.user.id)
+    }
     if (pathname.startsWith("/api/") && origin && originAllowed(origin, allowList)) {
       res.headers.set("Access-Control-Allow-Origin", origin)
       res.headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization")
@@ -68,18 +74,31 @@ export default auth(async (req) => {
     return res
   }
 
-  // Check Bearer token (for extension/API access)
+  // Check Bearer token (for extension/API access or session tokens from mobile)
   const authHeader = req.headers.get("authorization")
   const SECRET = process.env.AUTH_SECRET || ""
-  if (SECRET && authHeader) {
+  if (authHeader) {
     const match = authHeader.match(/^Bearer\s+(.+)$/i)
-    if (match && match[1] === SECRET) {
-      const res = NextResponse.next()
-      if (origin && originAllowed(origin, allowList)) {
-        res.headers.set("Access-Control-Allow-Origin", origin)
-        res.headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+    if (match) {
+      const token = match[1]
+      // Check against AUTH_SECRET
+      if (SECRET && token === SECRET) {
+        const res = NextResponse.next()
+        if (origin && originAllowed(origin, allowList)) {
+          res.headers.set("Access-Control-Allow-Origin", origin)
+          res.headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        }
+        return res
       }
-      return res
+      // Check against session token (signed via HMAC)
+      if (await verifyCookie(token)) {
+        const res = NextResponse.next()
+        if (origin && originAllowed(origin, allowList)) {
+          res.headers.set("Access-Control-Allow-Origin", origin)
+          res.headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        }
+        return res
+      }
     }
   }
 

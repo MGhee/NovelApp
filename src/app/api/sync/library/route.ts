@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { getUserId } from '@/lib/getUserId'
 
 /**
  * GET /api/sync/library
@@ -7,9 +8,15 @@ import { prisma } from '@/lib/prisma'
  * Android app calls this to fetch the full state and merge with local data.
  */
 export async function GET(req: NextRequest) {
+  const userId = await getUserId(req)
+  if (!userId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   try {
     const books = await prisma.book.findMany({
       where: {
+        userId,
         siteUrl: { not: null }, // Only sync books with a site URL (web-sourced)
         status: 'READING', // Only sync currently-reading books
       },

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { COOKIE_NAME, createSessionCookie, verifyBearer } from '@/lib/auth'
+import { verifyBearer } from '@/lib/auth'
 import { isAllowed } from '@/lib/rateLimiter'
 
 export async function POST(req: NextRequest) {
@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
   const start = Date.now()
   let ok = false
   try {
-    ok = !!(verifyBearer(`Bearer ${password}`) || verifyBearer(header))
+    ok = !!((await verifyBearer(`Bearer ${password}`)) || (await verifyBearer(header)))
   } catch (err) {
     console.error('auth.verify error', err)
     ok = false
@@ -35,10 +35,8 @@ export async function POST(req: NextRequest) {
     return res
   }
 
-  const cookieValue = createSessionCookie()
+  // Bearer token auth successful - no session cookie needed (middleware validates token)
   const res = NextResponse.json({ ok: true })
-  const secure = process.env.NODE_ENV === 'production'
-  res.cookies.set({ name: COOKIE_NAME, value: cookieValue, httpOnly: true, path: '/', sameSite: 'lax', secure, maxAge: 7 * 24 * 60 * 60 })
   res.headers.set('X-Auth-Duration-ms', String(Date.now() - start))
   console.info(`login ok ip=${ip} duration=${res.headers.get('X-Auth-Duration-ms')}ms`)
   return res

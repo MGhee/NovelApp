@@ -1,8 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: 'standalone',
   serverExternalPackages: [
+    '@prisma/client',
+    '@prisma/adapter-better-sqlite3',
     'puppeteer',
     'puppeteer-real-browser',
     'puppeteer-core',

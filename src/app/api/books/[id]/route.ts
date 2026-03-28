@@ -3,13 +3,17 @@ import { prisma } from '@/lib/prisma'
 import { bookEmitter } from '@/lib/events'
 import { normalizeUrl } from '@/lib/utils'
 import { invalidateCache } from '@/lib/bookListCache'
+import { getUserId } from '@/lib/getUserId'
 
 type Params = { params: Promise<{ id: string }> }
 
-export async function GET(_req: NextRequest, { params }: Params) {
+export async function GET(req: NextRequest, { params }: Params) {
+  const userId = await getUserId(req)
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
   const { id } = await params
-  const book = await prisma.book.findUnique({
-    where: { id: parseInt(id) },
+  const book = await prisma.book.findFirst({
+    where: { id: parseInt(id), userId },
     include: {
       characters: true,
       customFields: true,
@@ -21,9 +25,18 @@ export async function GET(_req: NextRequest, { params }: Params) {
 }
 
 export async function PATCH(req: NextRequest, { params }: Params) {
+  const userId = await getUserId(req)
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
   const { id } = await params
   const body = await req.json()
   const bookId = parseInt(id)
+
+  // Verify ownership
+  const existingBook = await prisma.book.findFirst({
+    where: { id: bookId, userId },
+  })
+  if (!existingBook) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   const { customFields, characters, ...fields } = body
 
@@ -55,7 +68,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   })
 
   invalidateCache()
-  bookEmitter.emit('book_updated', {
+  bookEmitter.emit(`book_updated:${userId}`, {
     id: book.id,
     title: book.title,
     author: book.author,
@@ -75,11 +88,21 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   return NextResponse.json(book)
 }
 
-export async function DELETE(_req: NextRequest, { params }: Params) {
+export async function DELETE(req: NextRequest, { params }: Params) {
+  const userId = await getUserId(req)
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
   const { id } = await params
   const bookId = parseInt(id)
+
+  // Verify ownership
+  const book = await prisma.book.findFirst({
+    where: { id: bookId, userId },
+  })
+  if (!book) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
   await prisma.book.delete({ where: { id: bookId } })
   invalidateCache()
-  bookEmitter.emit('book_deleted', { id: bookId })
+  bookEmitter.emit(`book_deleted:${userId}`, { id: bookId })
   return NextResponse.json({ ok: true })
 }
