@@ -4,7 +4,7 @@ import "dotenv/config";
 import { defineConfig } from "prisma/config";
 import path from "path";
 
-const dbPath = process.env.DATABASE_URL || `file:${path.resolve(process.cwd(), "dev.db")}`;
+const dbPath = process.env.DB_PATH || path.resolve(process.cwd(), "dev.db");
 
 export default defineConfig({
   schema: "prisma/schema.prisma",
