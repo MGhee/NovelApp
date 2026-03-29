@@ -16,6 +16,7 @@ FROM node:20-bookworm-slim AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+ENV DB_PATH=/app/data/novelapp.db
 RUN npx prisma generate
 RUN npm run build
 
@@ -24,7 +25,8 @@ FROM node:20-bookworm-slim AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production \
-    HOSTNAME=0.0.0.0
+    HOSTNAME=0.0.0.0 \
+    DB_PATH=/app/data/novelapp.db
 
 RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
