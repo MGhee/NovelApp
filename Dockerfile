@@ -28,8 +28,7 @@ ENV NODE_ENV=production \
     HOSTNAME=0.0.0.0 \
     DB_PATH=/app/data/novelapp.db
 
-RUN apt-get update && apt-get install -y \
-    && rm -rf /var/lib/apt/lists/*
+RUN mkdir -p /app/data
 
 # Copy built Next.js app and dependencies
 COPY --from=builder /app/node_modules ./node_modules
@@ -37,6 +36,8 @@ COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/package.json ./
+
+VOLUME /app/data
 
 EXPOSE 3000
 
