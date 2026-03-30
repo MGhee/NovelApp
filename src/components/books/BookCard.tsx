@@ -53,7 +53,7 @@ function BookCard({ book, onDeleted, onUpdated }: BookCardProps) {
   }
 
   return (
-    <Link href={`/books/${book.id}`}>
+    <Link href={`/books/${book.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
       <motion.div
         className="relative group"
         onMouseEnter={() => setHover(true)}
@@ -83,7 +83,7 @@ function BookCard({ book, onDeleted, onUpdated }: BookCardProps) {
               fill
               style={{ objectFit: 'cover' }}
               sizes="160px"
-              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+              unoptimized
             />
           ) : (
             <div style={{
