@@ -160,7 +160,7 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
   }
 
   async function updateStatus(status: string) {
-    setBook(prev => prev ? { ...prev, status } : prev)
+    setBook(prev => prev ? { ...prev, status: status as any } : prev)
     const updated = await updateBook(parseInt(id), { status } as any)
     setBook(prev => prev ? { ...prev, ...updated } : prev)
   }
