@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import type { BookDetail, BookEvent, Character, CustomField } from '@/lib/types'
 import { updateBook, deleteBook } from '@/hooks/useBooks'
 import { useRouter } from 'next/navigation'
+import { useRef } from 'react'
 
 const STATUS_COLORS: Record<string, string> = {
   READING: 'var(--status-reading)',
@@ -91,6 +92,10 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
 
   // Chapter groups state
   const [expandedGroups, setExpandedGroups] = useState<Set<number>>(new Set())
+
+  // Scroll state for header shadow
+  const [scrolled, setScrolled] = useState(false)
+  const contentRef = useRef<HTMLDivElement>(null)
 
   async function loadBook() {
     setLoading(true)
@@ -182,8 +187,21 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
   }
 
   if (loading) return (
-    <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
-      Loading…
+    <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)' }}>
+      <div style={{ height: '56px' }} />
+      <div style={{ display: 'flex', gap: '24px', padding: '40px 24px' }}>
+        <div className="skeleton" style={{ width: '160px', height: '230px', borderRadius: '10px', flexShrink: 0 }} />
+        <div style={{ flex: 1 }}>
+          <div className="skeleton" style={{ height: '24px', width: '60%', marginBottom: '12px' }} />
+          <div className="skeleton" style={{ height: '14px', width: '30%', marginBottom: '16px' }} />
+          <div style={{ display: 'flex', gap: '6px', marginBottom: '16px' }}>
+            {[80, 60, 70].map((w, i) => (
+              <div key={i} className="skeleton" style={{ height: '22px', width: `${w}px`, borderRadius: '4px' }} />
+            ))}
+          </div>
+          <div className="skeleton" style={{ height: '4px', width: '300px', borderRadius: '2px' }} />
+        </div>
+      </div>
     </div>
   )
 
@@ -198,11 +216,15 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
   return (
     <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)' }}>
         {/* Header */}
-        <header style={{
+        <header
+          suppressHydrationWarning
+          style={{
           padding: '0 24px', height: '56px', display: 'flex', alignItems: 'center',
           gap: '12px', borderBottom: '1px solid var(--border)',
           position: 'sticky', top: 0, zIndex: 30,
           backgroundColor: 'rgba(13,13,13,0.95)', backdropFilter: 'blur(8px)',
+          boxShadow: scrolled ? '0 1px 12px rgba(0,0,0,0.5)' : 'none',
+          transition: 'box-shadow 0.2s',
         }}>
           <button
             onClick={() => router.back()}
@@ -239,7 +261,12 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
         }} />
 
         {/* Content */}
-        <div style={{
+        <motion.div
+          suppressHydrationWarning
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+          style={{
           position: 'relative',
           padding: '40px 24px 32px',
           display: 'flex',
@@ -382,8 +409,23 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
               )}
             </div>
             {book.totalChapters > 0 && (
-              <div style={{ height: '4px', backgroundColor: 'var(--border)', borderRadius: '2px', maxWidth: '300px' }}>
-                <div style={{ height: '100%', width: `${progress}%`, backgroundColor: STATUS_COLORS[book.status], borderRadius: '2px' }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ height: '4px', backgroundColor: 'var(--border)', borderRadius: '2px', maxWidth: '300px', flex: 1 }}>
+                  <div style={{
+                    height: '100%',
+                    width: `${progress}%`,
+                    backgroundColor: STATUS_COLORS[book.status],
+                    borderRadius: '2px',
+                    animation: 'progress-fill 0.6s ease-out forwards',
+                  }} />
+                </div>
+                <motion.span
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  style={{ fontSize: '12px', color: 'var(--text-muted)' }}
+                >
+                  {progress.toFixed(0)}%
+                </motion.span>
               </div>
             )}
           </div>
@@ -416,7 +458,7 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
           )}
         </div>
 
-        </div>
+        </motion.div>
       </div>
 
       {/* Section tabs */}
@@ -461,7 +503,14 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
       </div>
 
       {/* Section content */}
-      <div style={{ padding: '20px 24px', maxWidth: '900px' }}>
+      <div
+        ref={contentRef}
+        suppressHydrationWarning
+        onScroll={(e) => {
+          const el = e.currentTarget as HTMLDivElement
+          setScrolled(el.scrollTop > 0)
+        }}
+        style={{ padding: '20px 24px', maxWidth: '900px', flex: 1, overflow: 'auto' }}>
         {/* Info section */}
         {activeSection === 'info' && (
           <div>
@@ -548,12 +597,17 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
                                 <tbody>
                                   {group.chapters.map((ch) => {
                                     const isCurrent = ch.number === book.currentChapter
+                                    const isRead = ch.number < book.currentChapter
                                     return (
                                       <tr key={ch.id} style={{
                                         borderBottom: '1px solid rgba(255,255,255,0.04)',
                                         backgroundColor: isCurrent ? 'var(--accent-bg)' : 'transparent',
+                                        opacity: isRead && !isCurrent ? 0.5 : 1,
                                       }}>
                                         <td style={{ padding: '6px 12px', width: '50px' }}>
+                                          <span style={{ color: 'var(--status-reading)', marginRight: '4px', fontSize: '10px' }}>
+                                            {isRead ? '✓' : ' '}
+                                          </span>
                                           <a href={ch.url} target="_blank" rel="noreferrer" style={{ color: isCurrent ? 'var(--accent)' : 'var(--text-dim)', textDecoration: 'none', cursor: 'pointer' }}>
                                             {ch.number}
                                           </a>
@@ -662,7 +716,7 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
 const inlineInputStyle: React.CSSProperties = {
   backgroundColor: 'var(--bg-card)', border: '1px solid var(--accent)',
   borderRadius: '4px', color: 'var(--text)', padding: '4px 8px', fontSize: '14px',
-  outline: 'none', flex: 1,
+  outline: 'none', flex: 1, boxSizing: 'border-box',
 }
 
 const formInputStyle: React.CSSProperties = {
@@ -680,7 +734,7 @@ const smallBtnStyle: React.CSSProperties = {
 const smallPrimaryBtn: React.CSSProperties = {
   padding: '7px 16px', backgroundColor: 'var(--accent)',
   border: 'none', borderRadius: '6px', color: '#fff',
-  fontSize: '12px', fontWeight: 600, cursor: 'pointer',
+  fontSize: '12px', fontWeight: 600, cursor: 'pointer', transition: 'transform var(--duration-fast) var(--ease-out-expo)',
 }
 
 const secondarySmallBtn: React.CSSProperties = {

@@ -4,6 +4,7 @@ import React from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import type { BookSummary } from '@/lib/types'
 import { deleteBook, updateBook } from '@/hooks/useBooks'
 
@@ -53,19 +54,23 @@ function BookCard({ book, onDeleted, onUpdated }: BookCardProps) {
 
   return (
     <Link href={`/books/${book.id}`}>
-      <div
+      <motion.div
         className="relative group"
         onMouseEnter={() => setHover(true)}
         onMouseLeave={() => setHover(false)}
+        whileHover={{
+          y: -4,
+          boxShadow: '0 8px 30px rgba(0,0,0,0.4), 0 0 20px rgba(6,182,212,0.15)',
+          borderColor: 'rgba(6,182,212,0.3)',
+        }}
+        whileTap={{ scale: 0.98 }}
+        transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
         style={{
           backgroundColor: 'var(--bg-card)',
           border: '1px solid var(--border)',
           borderRadius: '10px',
           overflow: 'hidden',
           cursor: 'pointer',
-          transition: 'border-color 0.15s, transform 0.15s, box-shadow 0.15s',
-          transform: hover ? 'translateY(-4px)' : 'none',
-          boxShadow: hover ? `0 8px 24px ${hover ? 'var(--accent-glow)' : 'transparent'}` : 'none',
           width: '210px',
         }}
       >
@@ -115,21 +120,27 @@ function BookCard({ book, onDeleted, onUpdated }: BookCardProps) {
           </button>
 
           {/* Delete button on hover */}
-          {hover && (
-            <button
-              onClick={handleDelete}
-              disabled={deleting}
-              title="Remove book"
-              style={{
-                position: 'absolute', bottom: '6px', right: '6px',
-                background: 'rgba(239,68,68,0.85)', border: 'none', borderRadius: '4px',
-                color: '#fff', fontSize: '11px', padding: '2px 6px',
-                cursor: 'pointer',
-              }}
-            >
-              ✕
-            </button>
-          )}
+          <AnimatePresence>
+            {hover && (
+              <motion.button
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                transition={{ duration: 0.15 }}
+                onClick={handleDelete}
+                disabled={deleting}
+                title="Remove book"
+                style={{
+                  position: 'absolute', bottom: '6px', right: '6px',
+                  background: 'rgba(239,68,68,0.85)', border: 'none', borderRadius: '4px',
+                  color: '#fff', fontSize: '11px', padding: '2px 6px',
+                  cursor: 'pointer',
+                }}
+              >
+                ✕
+              </motion.button>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* Info */}
@@ -157,6 +168,7 @@ function BookCard({ book, onDeleted, onUpdated }: BookCardProps) {
                     backgroundColor: 'var(--genre-bg)',
                     color: 'var(--genre-text)',
                     whiteSpace: 'nowrap',
+                    border: '1px solid rgba(6,182,212,0.15)',
                   }}>
                     {g.trim()}
                   </span>
@@ -184,11 +196,12 @@ function BookCard({ book, onDeleted, onUpdated }: BookCardProps) {
                 borderRadius: '3px',
                 transition: 'width 0.3s',
                 boxShadow: `0 0 8px ${STATUS_COLORS[book.status]}80`,
+                animation: 'progress-fill 0.6s ease-out forwards',
               }} />
             </div>
           )}
         </div>
-      </div>
+      </motion.div>
     </Link>
   )
 }

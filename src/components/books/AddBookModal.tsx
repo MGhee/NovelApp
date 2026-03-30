@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { motion, AnimatePresence } from 'framer-motion'
 import type { ScrapeResult } from '@/lib/types'
 import { createBook } from '@/hooks/useBooks'
 
@@ -134,7 +135,12 @@ export default function AddBookModal({ onClose, onAdded, initialUrl = '' }: AddB
   }
 
   return (
-    <div
+    <motion.div
+      suppressHydrationWarning
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
       onClick={onClose}
       style={{
         position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.7)',
@@ -142,7 +148,12 @@ export default function AddBookModal({ onClose, onAdded, initialUrl = '' }: AddB
         zIndex: 50, padding: '16px',
       }}
     >
-      <div
+      <motion.div
+        suppressHydrationWarning
+        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 10 }}
+        transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
         onClick={(e) => e.stopPropagation()}
         style={{
           backgroundColor: 'var(--bg-modal)',
@@ -159,37 +170,54 @@ export default function AddBookModal({ onClose, onAdded, initialUrl = '' }: AddB
           <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>
             {step === 'url' ? 'Add Book' : step === 'confirm' ? 'Confirm Details' : '✓ Book Added'}
           </h2>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '20px', cursor: 'pointer' }}>✕</button>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '20px', cursor: 'pointer', padding: '0', transition: 'transform 150ms' }} onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.96)'} onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}>✕</button>
         </div>
 
-        {step === 'url' && (
-          <div>
-            <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: '16px' }}>
-              Paste a book or chapter URL to auto-fill details, or skip to enter manually.
-            </p>
-            <label style={labelStyle}>Book or Chapter URL</label>
-            <input
-              style={inputStyle}
-              placeholder="https://readnovelfull.com/book-title.html"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleScrape()}
-              autoFocus
-            />
-            {scrapeError && <p style={{ color: 'var(--status-dropped)', fontSize: '12px', marginTop: '6px' }}>{scrapeError}</p>}
-            <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
-              <button onClick={handleScrape} disabled={scraping} style={primaryBtnStyle}>
-                {scraping ? 'Scraping…' : 'Scrape & Fill'}
-              </button>
-              <button onClick={handleSkipScrape} style={secondaryBtnStyle}>
-                Skip (Manual)
-              </button>
-            </div>
-          </div>
-        )}
+        <AnimatePresence mode="wait">
+          {step === 'url' && (
+            <motion.div
+              suppressHydrationWarning
+              key="url"
+              initial={{ opacity: 0, x: 10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -10 }}
+              transition={{ duration: 0.2 }}
+            >
+              <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: '16px' }}>
+                Paste a book or chapter URL to auto-fill details, or skip to enter manually.
+              </p>
+              <label style={labelStyle}>Book or Chapter URL</label>
+              <input
+                style={inputStyle}
+                placeholder="https://readnovelfull.com/book-title.html"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleScrape()}
+                autoFocus
+              />
+              {scrapeError && <p style={{ color: 'var(--status-dropped)', fontSize: '12px', marginTop: '6px' }}>{scrapeError}</p>}
+              <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+                <button onClick={handleScrape} disabled={scraping} style={primaryBtnStyle}>
+                  {scraping ? 'Scraping…' : 'Scrape & Fill'}
+                </button>
+                <button onClick={handleSkipScrape} style={secondaryBtnStyle}>
+                  Skip (Manual)
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-        {step === 'confirm' && (
-          <div>
+        <AnimatePresence mode="wait">
+          {step === 'confirm' && (
+            <motion.div
+              suppressHydrationWarning
+              key="confirm"
+              initial={{ opacity: 0, x: 10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -10 }}
+              transition={{ duration: 0.2 }}
+            >
             {scraped && (
               <div style={{ marginBottom: '12px', padding: '8px 12px', backgroundColor: 'rgba(99,102,241,0.1)', borderRadius: '6px', fontSize: '12px', color: 'var(--accent)' }}>
                 ✓ Scraped — {scraped.totalChapters} chapters found
@@ -198,27 +226,27 @@ export default function AddBookModal({ onClose, onAdded, initialUrl = '' }: AddB
             )}
 
             <label style={labelStyle}>Title *</label>
-            <input style={inputStyle} value={title} onChange={(e) => setTitle(e.target.value)} />
+            <input className="input-glow" style={inputStyle} value={title} onChange={(e) => setTitle(e.target.value)} />
 
             <label style={labelStyle}>Author</label>
-            <input style={inputStyle} value={author} onChange={(e) => setAuthor(e.target.value)} />
+            <input className="input-glow" style={inputStyle} value={author} onChange={(e) => setAuthor(e.target.value)} />
 
             <label style={labelStyle}>Cover URL</label>
-            <input style={inputStyle} value={coverUrl} onChange={(e) => setCoverUrl(e.target.value)} />
+            <input className="input-glow" style={inputStyle} value={coverUrl} onChange={(e) => setCoverUrl(e.target.value)} />
 
             <label style={labelStyle}>Genre</label>
-            <input style={inputStyle} value={genre} onChange={(e) => setGenre(e.target.value)} />
+            <input className="input-glow" style={inputStyle} value={genre} onChange={(e) => setGenre(e.target.value)} />
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
               <div>
                 <label style={labelStyle}>Type</label>
-                <select style={inputStyle} value={type} onChange={(e) => setType(e.target.value)}>
+                <select className="input-glow" style={inputStyle} value={type} onChange={(e) => setType(e.target.value)}>
                   {TYPE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
               </div>
               <div>
                 <label style={labelStyle}>Status</label>
-                <select style={inputStyle} value={status} onChange={(e) => setStatus(e.target.value)}>
+                <select className="input-glow" style={inputStyle} value={status} onChange={(e) => setStatus(e.target.value)}>
                   {STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
               </div>
@@ -226,6 +254,7 @@ export default function AddBookModal({ onClose, onAdded, initialUrl = '' }: AddB
 
             <label style={labelStyle}>Current Chapter</label>
             <input
+              className="input-glow"
               style={inputStyle}
               type="number"
               min={0}
@@ -235,6 +264,7 @@ export default function AddBookModal({ onClose, onAdded, initialUrl = '' }: AddB
 
             <label style={labelStyle}>Description</label>
             <textarea
+              className="input-glow"
               style={{ ...inputStyle, height: '80px', resize: 'vertical' }}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -246,18 +276,36 @@ export default function AddBookModal({ onClose, onAdded, initialUrl = '' }: AddB
               </button>
               <button onClick={() => setStep('url')} style={secondaryBtnStyle}>Back</button>
             </div>
-          </div>
-        )}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-        {step === 'success' && (
-          <div style={{ textAlign: 'center', padding: '24px 0' }}>
-            <div style={{ fontSize: '48px', marginBottom: '12px' }}>📚</div>
-            <p style={{ color: 'var(--text-muted)', marginBottom: '16px' }}>"{title}" has been added to your list.</p>
-            <button onClick={onClose} style={primaryBtnStyle}>Done</button>
-          </div>
-        )}
-      </div>
-    </div>
+        <AnimatePresence mode="wait">
+          {step === 'success' && (
+            <motion.div
+              suppressHydrationWarning
+              key="success"
+              initial={{ opacity: 0, x: 10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -10 }}
+              transition={{ duration: 0.2 }}
+              style={{ textAlign: 'center', padding: '24px 0' }}
+            >
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 15, delay: 0.1 }}
+                style={{ fontSize: '48px', marginBottom: '12px' }}
+              >
+                📚
+              </motion.div>
+              <p style={{ color: 'var(--text-muted)', marginBottom: '16px' }}>"{title}" has been added to your list.</p>
+              <button onClick={onClose} style={primaryBtnStyle}>Done</button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
+    </motion.div>
   )
 }
 
