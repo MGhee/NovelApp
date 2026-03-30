@@ -4,7 +4,8 @@ import "dotenv/config";
 import { defineConfig } from "prisma/config";
 import path from "path";
 
-const dbPath = process.env.DB_PATH || path.resolve(process.cwd(), "dev.db");
+// Handle DB_PATH (local/server) or default to dev.db
+const dbUrl = `file:${process.env.DB_PATH || path.resolve(process.cwd(), "dev.db")}`;
 
 export default defineConfig({
   schema: "prisma/schema.prisma",
@@ -13,6 +14,6 @@ export default defineConfig({
     seed: "tsx prisma/seed.ts",
   },
   datasource: {
-    url: dbPath,
+    url: dbUrl,
   },
 });

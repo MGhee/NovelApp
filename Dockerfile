@@ -5,6 +5,7 @@ RUN apt-get update && apt-get install -y \
     python3 \
     make \
     g++ \
+    openssl \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -26,7 +27,7 @@ WORKDIR /app
 
 ENV NODE_ENV=production \
     HOSTNAME=0.0.0.0 \
-    DB_PATH=/app/data/novelapp.db
+    DB_PATH=/app/dev.db
 
 RUN mkdir -p /app/data
 
@@ -36,6 +37,7 @@ COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/package.json ./
+COPY --from=builder /app/prisma.config.ts ./
 
 VOLUME /app/data
 
