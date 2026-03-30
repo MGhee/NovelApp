@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, use } from 'react'
+import { useState, useEffect, useMemo, use } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -97,6 +97,17 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
   const [scrolled, setScrolled] = useState(false)
   const contentRef = useRef<HTMLDivElement>(null)
 
+  // Memoize chapter grouping
+  const chapterGroups = useMemo(() => {
+    if (!book) return []
+    const groups: { start: number; end: number; chapters: typeof book.chapters }[] = []
+    for (let i = 0; i < book.chapters.length; i += 50) {
+      const batch = book.chapters.slice(i, i + 50)
+      groups.push({ start: batch[0].number, end: batch[batch.length - 1].number, chapters: batch })
+    }
+    return groups
+  }, [book?.chapters])
+
   async function loadBook() {
     setLoading(true)
     const res = await fetch(`/api/books/${id}`)
@@ -134,27 +145,31 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
   }, [id])
 
   async function updateChapter() {
-    await updateBook(parseInt(id), { currentChapter: chapterInput } as any)
     setEditingChapter(false)
-    loadBook()
+    setBook(prev => prev ? { ...prev, currentChapter: chapterInput } : prev)
+    const updated = await updateBook(parseInt(id), { currentChapter: chapterInput } as any)
+    setBook(prev => prev ? { ...prev, ...updated } : prev)
   }
 
   async function toggleFavorite() {
     if (!book) return
-    await updateBook(parseInt(id), { isFavorite: !book.isFavorite } as any)
-    loadBook()
+    const newVal = !book.isFavorite
+    setBook(prev => prev ? { ...prev, isFavorite: newVal } : prev)
+    const updated = await updateBook(parseInt(id), { isFavorite: newVal } as any)
+    setBook(prev => prev ? { ...prev, ...updated } : prev)
   }
 
   async function updateStatus(status: string) {
-    await updateBook(parseInt(id), { status } as any)
-    loadBook()
+    setBook(prev => prev ? { ...prev, status } : prev)
+    const updated = await updateBook(parseInt(id), { status } as any)
+    setBook(prev => prev ? { ...prev, ...updated } : prev)
   }
 
   async function saveFields() {
     setSavingFields(true)
-    await updateBook(parseInt(id), { customFields: fields } as any)
+    const updated = await updateBook(parseInt(id), { customFields: fields } as any)
     setSavingFields(false)
-    loadBook()
+    setBook(prev => prev ? { ...prev, ...updated } : prev)
   }
 
   async function addCharacter() {
@@ -286,7 +301,7 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
             border: '2px solid rgba(255,255,255,0.1)',
           }}>
             {book.coverUrl ? (
-              <Image src={book.coverUrl} alt={book.title} fill style={{ objectFit: 'cover' }} sizes="160px" />
+              <Image src={book.coverUrl} alt={book.title} fill unoptimized style={{ objectFit: 'cover' }} sizes="160px" />
             ) : (
               <div style={{
                 display: 'flex',
@@ -312,12 +327,12 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
                   value={titleInput}
                   onChange={(e) => setTitleInput(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') { updateBook(parseInt(id), { title: titleInput } as any).then(loadBook); setEditingTitle(false) }
+                    if (e.key === 'Enter') { setBook(prev => prev ? { ...prev, title: titleInput } : prev); updateBook(parseInt(id), { title: titleInput } as any).then(u => setBook(prev => prev ? { ...prev, ...u } : prev)); setEditingTitle(false) }
                     if (e.key === 'Escape') setEditingTitle(false)
                   }}
                   autoFocus
                 />
-                <button onClick={() => { updateBook(parseInt(id), { title: titleInput } as any).then(loadBook); setEditingTitle(false) }} style={smallBtnStyle}>✓</button>
+                <button onClick={() => { setBook(prev => prev ? { ...prev, title: titleInput } : prev); updateBook(parseInt(id), { title: titleInput } as any).then(u => setBook(prev => prev ? { ...prev, ...u } : prev)); setEditingTitle(false) }} style={smallBtnStyle}>✓</button>
                 <button onClick={() => setEditingTitle(false)} style={{ ...smallBtnStyle, backgroundColor: 'transparent' }}>✕</button>
               </div>
             ) : (
@@ -361,8 +376,9 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
                 onClick={async () => {
                   const newCh = Math.max(0, book.currentChapter - 1)
                   setChapterInput(newCh)
-                  await updateBook(parseInt(id), { currentChapter: newCh } as any)
-                  loadBook()
+                  setBook(prev => prev ? { ...prev, currentChapter: newCh } : prev)
+                  const updated = await updateBook(parseInt(id), { currentChapter: newCh } as any)
+                  setBook(prev => prev ? { ...prev, ...updated } : prev)
                 }}
                 title="Previous chapter"
                 style={{ width: '24px', height: '24px', borderRadius: '50%', backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}
@@ -394,8 +410,9 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
                 onClick={async () => {
                   const newCh = Math.min(book.totalChapters || book.currentChapter + 1, book.currentChapter + 1)
                   setChapterInput(newCh)
-                  await updateBook(parseInt(id), { currentChapter: newCh } as any)
-                  loadBook()
+                  setBook(prev => prev ? { ...prev, currentChapter: newCh } : prev)
+                  const updated = await updateBook(parseInt(id), { currentChapter: newCh } as any)
+                  setBook(prev => prev ? { ...prev, ...updated } : prev)
                 }}
                 title="Next chapter"
                 style={{ width: '24px', height: '24px', borderRadius: '50%', backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}
@@ -531,17 +548,7 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
               <p style={{ color: 'var(--text-dim)', fontSize: '14px' }}>No chapter list available. Add this book with a URL to scrape chapters.</p>
             ) : (
               <div>
-                {(() => {
-                  // Group chapters into 50-chapter batches
-                  const groups: { start: number; end: number; chapters: typeof book.chapters }[] = []
-                  for (let i = 0; i < book.chapters.length; i += 50) {
-                    const batch = book.chapters.slice(i, i + 50)
-                    const start = batch[0].number
-                    const end = batch[batch.length - 1].number
-                    groups.push({ start, end, chapters: batch })
-                  }
-
-                  return groups.map((group, groupIdx) => {
+                {chapterGroups.map((group, groupIdx) => {
                     const isExpanded = expandedGroups.has(groupIdx)
                     const groupContainsCurrent = book.currentChapter >= group.start && book.currentChapter <= group.end
 
@@ -627,8 +634,7 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
                         </AnimatePresence>
                       </div>
                     )
-                  })
-                })()}
+                  })}
               </div>
             )}
           </div>

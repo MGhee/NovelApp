@@ -19,16 +19,16 @@ const gridContainer = {
   hidden: { opacity: 0 },
   show: {
     opacity: 1,
-    transition: { staggerChildren: 0.04, delayChildren: 0 }
+    transition: { staggerChildren: 0.015, delayChildren: 0 }
   }
 }
 
 const gridItem = {
-  hidden: { opacity: 0, y: 16 },
+  hidden: { opacity: 0, y: 8 },
   show: { opacity: 1, y: 0 }
 }
 
-const gridItemTransition = { duration: 0.3 }
+const gridItemTransition = { duration: 0.15 }
 
 export default function HomePageInner() {
   const searchParams = useSearchParams()
@@ -108,6 +108,7 @@ export default function HomePageInner() {
                   onClick={() => {
                     setActiveTab(tab.id)
                     setYearFilter(null)
+                    contentRef.current?.scrollTo({ top: 0 })
                     const params = new URLSearchParams(window.location.search)
                     params.set('tab', tab.id)
                     router.replace(`/?${params.toString()}`, { scroll: false })
@@ -243,7 +244,7 @@ export default function HomePageInner() {
                 {error}
               </div>
             )}
-            {!error && filtered.length === 0 && (
+            {!error && !loading && filtered.length === 0 && (
               <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted)' }}>
                 <div style={{ fontSize: '48px', marginBottom: '12px', animation: 'float 3s ease-in-out infinite' }}>
                   {activeTab === 'READING' ? '📖' : activeTab === 'COMPLETED' ? '✅' : activeTab === 'FAVORITES' ? '⭐' : '📚'}
@@ -275,7 +276,6 @@ export default function HomePageInner() {
 
             {filtered.length > 0 && (
               <motion.div
-                key={activeTab}
                 suppressHydrationWarning
                 variants={gridContainer}
                 initial="hidden"
