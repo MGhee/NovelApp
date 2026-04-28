@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
 
   const book = await prisma.book.findFirst({
     where: { userId, siteUrl: { in: urlCandidates } },
-    select: { id: true, title: true, currentChapter: true, currentChapterUrl: true, status: true },
+    select: { id: true, title: true, currentChapter: true, currentChapterUrl: true, status: true, totalChapters: true },
   })
 
   if (!book) {
