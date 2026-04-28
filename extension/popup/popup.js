@@ -5,8 +5,10 @@ const STATUS_LABELS = {
   DROPPED: 'Waiting',
 }
 
+const DEFAULT_APP_URL = 'https://novelapp.viktorbarzin.me'
+
 function showState(id) {
-  ['loading', 'matched', 'not-matched', 'app-offline', 'not-novel-site'].forEach((s) => {
+  ['loading', 'matched', 'not-matched', 'app-offline', 'not-novel-site', 'auth-required'].forEach((s) => {
     document.getElementById(s).classList.toggle('hidden', s !== id)
   })
 }
@@ -24,11 +26,66 @@ function extractBookUrl(chUrl) {
   }
 }
 
+function setupSignInButton() {
+  const btn = document.getElementById('google-sign-in-btn')
+  const errorEl = document.getElementById('sign-in-error')
+  const loadingEl = document.getElementById('sign-in-loading')
+
+  btn.addEventListener('click', async () => {
+    btn.disabled = true
+    btn.classList.add('hidden')
+    loadingEl.classList.remove('hidden')
+    errorEl.classList.add('hidden')
+
+    chrome.runtime.sendMessage({ type: 'GOOGLE_SIGN_IN' }, (response) => {
+      if (response?.success) {
+        // Re-run init to show the authenticated UI
+        init()
+      } else {
+        btn.disabled = false
+        btn.classList.remove('hidden')
+        loadingEl.classList.add('hidden')
+        errorEl.textContent = response?.error || 'Sign-in failed'
+        errorEl.classList.remove('hidden')
+      }
+    })
+  })
+}
+
 async function init() {
   showState('loading')
 
-  // Load configured app URL and API key from storage
-  const { appUrl, apiKey } = await chrome.storage.sync.get({ appUrl: 'https://novelapp.viktorbarzin.me', apiKey: '' })
+  // Load configured app URL and auth state from storage
+  const { appUrl, sessionToken, userEmail, userName, userPicture, autoRedirect } =
+    await chrome.storage.sync.get({
+      appUrl: DEFAULT_APP_URL,
+      sessionToken: '',
+      userEmail: '',
+      userName: '',
+      userPicture: '',
+      autoRedirect: true,
+    })
+
+  const { authFailed } = await chrome.storage.session.get({ authFailed: false })
+
+  // Auth gate: if no session token or auth failed, show sign-in
+  if (!sessionToken || authFailed) {
+    showState('auth-required')
+    setupSignInButton()
+    return
+  }
+
+  // Show user info in header
+  if (userEmail) {
+    const userInfo = document.getElementById('user-info')
+    const avatar = document.getElementById('user-avatar')
+    if (userPicture) {
+      avatar.src = userPicture
+      avatar.title = userEmail
+    }
+    userInfo.classList.remove('hidden')
+  }
+
   const APP_URL = appUrl
 
   // Set dynamic links
@@ -39,16 +96,29 @@ async function init() {
   if (!tab?.url) { showState('not-novel-site'); return }
 
   const url = tab.url
-  const isNovelSite = /readnovelfull\.com|novelfull\.com|novelbin\.com|lightnovelworld\.com|empirenovel\.com|hangukhub\.com|novellive\.app|mangadex\.org|webtoon\.com/.test(url)
+  const trackedHosts = (chrome.runtime.getManifest().content_scripts?.[0]?.matches || [])
+    .map((p) => { try { return new URL(p.replace('*', 'x')).hostname } catch { return null } })
+    .filter(Boolean)
+  let tabHost = ''
+  try { tabHost = new URL(url).hostname } catch { /* not a real URL */ }
+  const isTrackedSite = tabHost && trackedHosts.some((h) => tabHost === h || tabHost === `www.${h}` || `www.${tabHost}` === h)
 
-  if (!isNovelSite) { showState('not-novel-site'); return }
+  if (!isTrackedSite) { showState('not-novel-site'); return }
 
   // Check if app is running and if this page matches a book
   try {
     const matchUrl = `${APP_URL}/api/extension/match?url=${encodeURIComponent(url)}`
-    const headers = {}
-    if (apiKey && apiKey.trim()) headers['Authorization'] = `Bearer ${apiKey.trim()}`
+    const headers = { 'Authorization': `Bearer ${sessionToken}` }
     const res = await fetch(matchUrl, { signal: AbortSignal.timeout(3000), headers })
+
+    if (res.status === 401) {
+      // Token expired or invalid — clear and show sign-in
+      await chrome.storage.sync.remove(['sessionToken', 'userEmail', 'userName', 'userPicture'])
+      showState('auth-required')
+      setupSignInButton()
+      return
+    }
+
     const { match } = await res.json()
 
     if (match) {

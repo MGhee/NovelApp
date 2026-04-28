@@ -27,6 +27,14 @@ header {
 }
 .open-app:hover { text-decoration: underline; }
 
+.user-info { display: flex; align-items: center; margin-left: 8px; }
+.user-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid #333;
+}
+
 #status-section { padding: 14px; }
 
 .state { display: flex; flex-direction: column; align-items: center; }
@@ -79,3 +87,37 @@ header {
   cursor: pointer;
 }
 .btn-primary:hover { background: #4f52d6; }
+
+.btn-google {
+  width: 100%;
+  padding: 10px 16px;
+  background: #fff;
+  color: #444;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.btn-google:hover { background: #f7f7f7; }
+.btn-google:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.google-icon { display: inline-block; }
+
+.error-text {
+  color: #ef4444;
+  font-size: 11px;
+  margin-top: 8px;
+  text-align: center;
+}
+
+.sign-in-loading {
+  color: #888;
+  font-size: 12px;
+  margin-top: 12px;
+  text-align: center;
+}

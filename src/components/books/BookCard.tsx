@@ -22,6 +22,11 @@ const STATUS_LABELS: Record<string, string> = {
   DROPPED: 'Waiting',
 }
 
+const TYPE_BADGE_LABELS: Record<string, string> = {
+  MANGA: 'Manga',
+  MANHWA: 'Manhwa',
+}
+
 interface BookCardProps {
   book: BookSummary
   onDeleted: () => void
@@ -103,6 +108,19 @@ function BookCard({ book, onDeleted, onUpdated }: BookCardProps) {
           }}>
             {STATUS_LABELS[book.status]}
           </div>
+
+          {/* Type badge (manga/manhwa only) */}
+          {TYPE_BADGE_LABELS[book.type] && (
+            <div style={{
+              position: 'absolute', bottom: '6px', left: '6px',
+              backgroundColor: 'rgba(0,0,0,0.65)',
+              color: '#fff', fontSize: '10px', fontWeight: 700,
+              padding: '2px 6px', borderRadius: '4px',
+              letterSpacing: '0.3px',
+            }}>
+              {TYPE_BADGE_LABELS[book.type]}
+            </div>
+          )}
 
           {/* Favorite star */}
           <button
@@ -215,7 +233,8 @@ const arePropsEqual = (prev: BookCardProps, next: BookCardProps) => {
     prev.book.isFavorite === next.book.isFavorite &&
     prev.book.coverUrl === next.book.coverUrl &&
     prev.book.updatedAt === next.book.updatedAt &&
-    prev.book.title === next.book.title
+    prev.book.title === next.book.title &&
+    prev.book.type === next.book.type
   )
 }
 

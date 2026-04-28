@@ -3,9 +3,9 @@
  * Runs on novel reading sites and reports the current chapter to the local app.
  */
 (async function () {
-  const { appUrl, apiKey, autoRedirect } = await chrome.storage.sync.get({
+  const { appUrl, sessionToken, autoRedirect } = await chrome.storage.sync.get({
     appUrl: 'https://novelapp.viktorbarzin.me',
-    apiKey: '',
+    sessionToken: '',
     autoRedirect: true,
   })
   const APP_URL = appUrl
@@ -67,7 +67,7 @@
   // API route normalizes chapter URL to book URL server-side for each site.
   try {
     const headers = { 'Content-Type': 'application/json' }
-    if (apiKey && apiKey.trim()) headers['Authorization'] = `Bearer ${apiKey.trim()}`
+    if (sessionToken) headers['Authorization'] = `Bearer ${sessionToken}`
 
     const response = await fetch(`${APP_URL}/api/extension/update`, {
       method: 'POST',

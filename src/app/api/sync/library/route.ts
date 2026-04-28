@@ -25,6 +25,7 @@ export async function GET(req: NextRequest) {
         title: true,
         siteUrl: true,
         status: true,
+        type: true,
         currentChapter: true,
         currentChapterUrl: true,
         totalChapters: true,

@@ -100,14 +100,20 @@ export async function POST(req: NextRequest) {
     })
   }
 
-  // Chapter >= current, update normally
+  // Chapter >= current, update normally.
+  // Status policy: preserve whatever the user set. Only auto-promote to COMPLETED
+  // when they reach the final chapter (and totalChapters is known).
+  const totalKnown = book.totalChapters > 0
+  const reachedEnd = totalKnown && chapterNumber >= book.totalChapters
+  const nextStatus =
+    reachedEnd && book.status !== 'COMPLETED' ? 'COMPLETED' : undefined
+
   const updated = await prisma.book.update({
     where: { id: book.id },
     data: {
       currentChapter: chapterNumber,
       currentChapterUrl: chapterUrl || null,
-      // Auto-promote to READING if was Plan To Read
-      status: book.status === 'PLAN_TO_READ' ? 'READING' : undefined,
+      status: nextStatus,
     },
     select: {
       id: true,

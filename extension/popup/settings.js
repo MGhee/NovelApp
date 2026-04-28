@@ -1,6 +1,6 @@
 /**
  * NovelApp Extension Settings
- * Manages the server URL configuration
+ * Manages the server URL and authentication
  */
 
 const appUrlInput = document.getElementById('app-url')
@@ -10,27 +10,47 @@ const statusMessage = document.getElementById('status-message')
 const autoRedirectInput = document.getElementById('auto-redirect')
 
 const DEFAULT_APP_URL = 'https://novelapp.viktorbarzin.me'
-const DEFAULT_API_KEY = ''
 const DEFAULT_AUTO_REDIRECT = true
-
-const apiKeyInput = document.getElementById('api-key')
 
 // Load current settings on page open
 async function loadSettings() {
-  const { appUrl, apiKey, autoRedirect } = await chrome.storage.sync.get({
-    appUrl: DEFAULT_APP_URL,
-    apiKey: DEFAULT_API_KEY,
-    autoRedirect: DEFAULT_AUTO_REDIRECT,
-  })
+  const { appUrl, autoRedirect, sessionToken, userEmail, userName, userPicture } =
+    await chrome.storage.sync.get({
+      appUrl: DEFAULT_APP_URL,
+      autoRedirect: DEFAULT_AUTO_REDIRECT,
+      sessionToken: '',
+      userEmail: '',
+      userName: '',
+      userPicture: '',
+    })
+
   appUrlInput.value = appUrl
-  if (apiKeyInput) apiKeyInput.value = apiKey || ''
   if (autoRedirectInput) autoRedirectInput.checked = autoRedirect
+
+  // Show account state
+  const signedInEl = document.getElementById('account-signed-in')
+  const signedOutEl = document.getElementById('account-signed-out')
+
+  if (sessionToken) {
+    signedInEl.classList.remove('hidden')
+    signedOutEl.classList.add('hidden')
+    document.getElementById('settings-name').textContent = userName || 'User'
+    document.getElementById('settings-email').textContent = userEmail
+    const avatar = document.getElementById('settings-avatar')
+    if (userPicture) {
+      avatar.src = userPicture
+    } else {
+      avatar.style.display = 'none'
+    }
+  } else {
+    signedInEl.classList.add('hidden')
+    signedOutEl.classList.remove('hidden')
+  }
 }
 
 // Save settings
 saveBtn.addEventListener('click', async () => {
   const url = appUrlInput.value.trim()
-  const apiKey = apiKeyInput ? apiKeyInput.value.trim() : ''
   const autoRedirect = autoRedirectInput ? autoRedirectInput.checked : DEFAULT_AUTO_REDIRECT
 
   // Validate URL
@@ -48,9 +68,8 @@ saveBtn.addEventListener('click', async () => {
   const cleanUrl = url.replace(/\/$/, '')
 
   // Save to storage
-  await chrome.storage.sync.set({ appUrl: cleanUrl, apiKey, autoRedirect })
+  await chrome.storage.sync.set({ appUrl: cleanUrl, autoRedirect })
   appUrlInput.value = cleanUrl
-  if (apiKeyInput) apiKeyInput.value = apiKey
   if (autoRedirectInput) autoRedirectInput.checked = autoRedirect
 
   showStatus('Settings saved successfully!', 'success')
@@ -58,11 +77,17 @@ saveBtn.addEventListener('click', async () => {
 
 // Reset to default
 resetBtn.addEventListener('click', async () => {
-  await chrome.storage.sync.remove(['appUrl', 'apiKey', 'autoRedirect'])
+  await chrome.storage.sync.remove(['appUrl', 'autoRedirect'])
   appUrlInput.value = DEFAULT_APP_URL
-  if (apiKeyInput) apiKeyInput.value = DEFAULT_API_KEY
   if (autoRedirectInput) autoRedirectInput.checked = DEFAULT_AUTO_REDIRECT
   showStatus('Reset to default settings', 'success')
+})
+
+// Sign out
+document.getElementById('sign-out-btn')?.addEventListener('click', () => {
+  chrome.runtime.sendMessage({ type: 'SIGN_OUT' }, () => {
+    loadSettings() // Refresh UI to show signed-out state
+  })
 })
 
 // Show status message

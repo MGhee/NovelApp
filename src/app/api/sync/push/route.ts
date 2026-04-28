@@ -5,6 +5,13 @@ import { scrapeBook } from '@/lib/scraper'
 import type { ScrapeResult } from '@/lib/types'
 import { getUserId } from '@/lib/getUserId'
 
+const VALID_BOOK_TYPES = new Set(['WEB_NOVEL', 'LIGHT_NOVEL', 'MANGA', 'MANHWA', 'PDF_DOWNLOAD'])
+function normalizeBookType(raw: unknown): 'WEB_NOVEL' | 'LIGHT_NOVEL' | 'MANGA' | 'MANHWA' | 'PDF_DOWNLOAD' {
+  return typeof raw === 'string' && VALID_BOOK_TYPES.has(raw)
+    ? (raw as 'WEB_NOVEL' | 'LIGHT_NOVEL' | 'MANGA' | 'MANHWA' | 'PDF_DOWNLOAD')
+    : 'WEB_NOVEL'
+}
+
 /**
  * POST /api/sync/push
  * Android app pushes its local state; server merges and returns resolved conflicts.
@@ -32,7 +39,8 @@ export async function POST(req: NextRequest) {
     }
 
     for (const androidBook of androidBooks) {
-      const { siteUrl, title, status, currentChapter, updatedAt, chapters: rawAndroidChapters, coverUrl, description } = androidBook
+      const { siteUrl, title, status, currentChapter, updatedAt, chapters: rawAndroidChapters, coverUrl, description, type: rawType } = androidBook
+      const normalizedType = normalizeBookType(rawType)
 
       // Normalize chapters: convert number from string to int
       const androidChapters = rawAndroidChapters?.map((ch: any) => ({
@@ -63,7 +71,7 @@ export async function POST(req: NextRequest) {
 
         if (existing) {
           // Book exists: merge based on conflict resolution rules
-          // Last-writer-wins for all fields based on timestamps
+          // Chapters: last-writer-wins by timestamp. Status: server wins (Android only knows COMPLETED/READING).
           // Android sends updatedAt as milliseconds since epoch (string), convert to number
           const androidTime = updatedAt ? parseInt(updatedAt, 10) : 0
           const existingTime = existing.updatedAt.getTime()
@@ -72,7 +80,12 @@ export async function POST(req: NextRequest) {
           // Convert currentChapter to number (Android sends as string)
           const androidChapterNum = typeof currentChapter === 'string' ? parseInt(currentChapter, 10) : currentChapter
           const mergedChapter = androidIsNewer ? androidChapterNum : existing.currentChapter
-          const mergedStatus = androidIsNewer ? status : existing.status
+          // Android can only send "COMPLETED" or "READING" (it lacks ON_HOLD, DROPPED, etc.).
+          // Always preserve the server's status unless Android reports a genuine completion.
+          const mergedStatus =
+            status === 'COMPLETED' && existing.status !== 'COMPLETED'
+              ? 'COMPLETED'
+              : existing.status
 
           console.log(`[Sync] ${title}: android=${currentChapter} (time=${androidTime}), existing=${existing.currentChapter} (time=${existingTime}), androidNewer=${androidIsNewer}, merged=${mergedChapter}`)
 
@@ -148,6 +161,7 @@ export async function POST(req: NextRequest) {
               userId,
               title,
               siteUrl,
+              type: normalizedType,
               status: status || 'READING',
               currentChapter: chapterNum || 0,
               totalChapters: androidChapters?.length ? androidChapters.length : (scrapedData?.totalChapters || totalChapterNum || 0),

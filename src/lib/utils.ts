@@ -122,6 +122,83 @@ export function extractBookUrl(chapterUrl: string): string | null {
       return null
     }
 
+    if (host === 'kingofshojo.com') {
+      // /{slug}-chapter-{N}/ → /manga/{slug}/
+      if (parts.length >= 1) {
+        const m = parts[parts.length - 1].match(/^(.+?)-chapter-\d+$/i)
+        if (m) return `${u.origin}/manga/${m[1]}/`
+      }
+      return null
+    }
+
+    if (host === 'comix.to') {
+      // /title/{hash_id}-{slug}/{chapter_id}-chapter-{N} → /title/{hash_id}-{slug}
+      if (parts.length >= 3 && parts[0] === 'title' && /-chapter-\d+$/i.test(parts[2])) {
+        return `${u.origin}/title/${parts[1]}`
+      }
+      return null
+    }
+
+    if (host === 'asurascans.com') {
+      // /comics/{slug}-{8hex}/chapter/{N} → /comics/{slug}
+      // /comics/{slug}-{8hex}             → /comics/{slug}
+      if (parts.length >= 2 && parts[0] === 'comics') {
+        const slug = parts[1].replace(/-[0-9a-f]{8}$/i, '')
+        return `${u.origin}/comics/${slug}`
+      }
+      return null
+    }
+
+    if (host === 'saikaiscan.com.br') {
+      // /ler/series/{slug}/{n}/{chapter_slug} → /series/{slug}
+      if (parts.length >= 3 && parts[0] === 'ler' && parts[1] === 'series') {
+        return `${u.origin}/series/${parts[2]}`
+      }
+      return null
+    }
+
+    if (host === 'twkan.com') {
+      // /txt/{book_id}/{chapter_id} → /book/{book_id}.html
+      if (parts.length >= 2 && parts[0] === 'txt') {
+        return `${u.origin}/book/${parts[1]}.html`
+      }
+      return null
+    }
+
+    if (host === 'ttkan.co') {
+      // /novel/pagea/{novel_id}_{n}.html → /novel/chapters/{novel_id}
+      if (parts.length >= 3 && parts[0] === 'novel' && parts[1] === 'pagea') {
+        const novelId = parts[2].replace(/\.html?$/i, '').split('_')[0]
+        if (novelId) return `${u.origin}/novel/chapters/${novelId}`
+      }
+      return null
+    }
+
+    // Generic fallback for unknown hosts: strip trailing chapter-like path
+    // segments. Handles two patterns:
+    //   1. Combined segment: /series/{slug}/chapter-12, /novel/{slug}/ep-3-title
+    //   2. Two-segment:      /comics/{slug}/chapter/12, /webtoon/{slug}/ep/3
+    const CHAPTER_SEGMENT_RE = /^(?:chapter|chap|ch|episode|ep|vol|volume|part)[-_.]?\d/i
+    const CHAPTER_BARE_RE = /^(?:chapter|chap|ch|episode|ep|vol|volume|part)$/i
+    let stripped = false
+    const trimmed = [...parts]
+    while (trimmed.length > 1 && CHAPTER_SEGMENT_RE.test(trimmed[trimmed.length - 1])) {
+      trimmed.pop()
+      stripped = true
+    }
+    if (
+      trimmed.length >= 2 &&
+      /^\d+$/.test(trimmed[trimmed.length - 1]) &&
+      CHAPTER_BARE_RE.test(trimmed[trimmed.length - 2])
+    ) {
+      trimmed.pop()
+      trimmed.pop()
+      stripped = true
+    }
+    if (stripped && trimmed.length > 0) {
+      return `${u.origin}/${trimmed.join('/')}/`
+    }
+
     return null
   } catch {
     return null

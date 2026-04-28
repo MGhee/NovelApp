@@ -84,11 +84,65 @@
       margin-top: 8px;
       line-height: 1.4;
     }
+    .account-card {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      background: var(--bg-secondary, #1a1a1a);
+      border: 1px solid var(--border, #333);
+      border-radius: 8px;
+    }
+    .settings-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .account-details {
+      flex: 1;
+      min-width: 0;
+    }
+    .account-name {
+      font-weight: 600;
+      font-size: 14px;
+    }
+    .account-email {
+      font-size: 12px;
+      color: var(--text-secondary, #888);
+    }
+    .btn-sign-out {
+      padding: 6px 12px;
+      background: transparent;
+      color: #ef4444;
+      border: 1px solid #ef4444;
+      border-radius: 4px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .btn-sign-out:hover {
+      background: rgba(239, 68, 68, 0.1);
+    }
   </style>
 </head>
 <body>
   <div id="app">
     <h1>📚 NovelApp Settings</h1>
+
+    <div id="account-section" class="form-group">
+      <label>Account</label>
+      <div id="account-signed-in" class="account-card hidden">
+        <img id="settings-avatar" class="settings-avatar" src="" alt="" />
+        <div class="account-details">
+          <div id="settings-name" class="account-name"></div>
+          <div id="settings-email" class="account-email"></div>
+        </div>
+        <button id="sign-out-btn" class="btn-sign-out">Sign Out</button>
+      </div>
+      <div id="account-signed-out" class="hidden">
+        <p class="help-text">Not signed in. Sign in from the popup to sync your reading progress.</p>
+      </div>
+    </div>
 
     <div class="form-group">
       <label for="app-url">Server URL</label>
@@ -105,12 +159,6 @@
     <div class="button-group">
       <button class="btn-reset" id="reset-btn">Reset to Default</button>
       <button class="btn-save" id="save-btn">Save</button>
-    </div>
-
-    <div class="form-group">
-      <label for="api-key">API Key</label>
-      <input type="password" id="api-key" placeholder="Your personal API token" />
-      <div class="help-text">Generate a personal API token from NovelApp Settings (http://localhost:3000/settings) and paste it here. Leave empty to disable authentication.</div>
     </div>
 
     <div class="form-group">

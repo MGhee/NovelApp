@@ -11,11 +11,26 @@
       <span class="logo">📚</span>
       <span class="title">NovelApp Tracker</span>
       <a href="#" target="_blank" class="open-app" data-href="open-app">Open App ↗</a>
+      <div id="user-info" class="user-info hidden">
+        <img id="user-avatar" class="user-avatar" src="" alt="" title="" />
+      </div>
       <a href="settings.html" class="settings-link" title="Settings">⚙️</a>
     </header>
 
     <div id="status-section">
       <div id="loading" class="state">Loading…</div>
+      <div id="auth-required" class="state hidden">
+        <div class="no-match-icon">🔒</div>
+        <p class="no-match-text">Sign in with your Google account to sync your reading progress.</p>
+        <button id="google-sign-in-btn" class="btn-google">
+          <svg class="google-icon" viewBox="0 0 24 24" width="18" height="18" style="fill: currentColor;">
+            <path d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032 c0-3.331,2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.461,2.268,15.365,1.25,12.545,1.25 c-6.343,0-11.5,5.157-11.5,11.5c0,6.343,5.157,11.5,11.5,11.5c6.343,0,11.5-5.157,11.5-11.5c0-0.746-0.090-1.472-0.257-2.182H12.545z"/>
+          </svg>
+          Sign in with Google
+        </button>
+        <div id="sign-in-error" class="error-text hidden"></div>
+        <div id="sign-in-loading" class="sign-in-loading hidden">Signing in...</div>
+      </div>
       <div id="matched" class="state hidden">
         <div class="book-info">
           <img id="book-cover" src="" alt="" />
@@ -44,7 +59,7 @@
       </div>
       <div id="not-novel-site" class="state hidden">
         <div class="no-match-icon">🌐</div>
-        <p class="no-match-text">Navigate to a novel reading site to start tracking.</p>
+        <p class="no-match-text">Navigate to a novel or manga reading site to start tracking.</p>
         <a href="#" target="_blank" class="btn-primary" data-href="open-app" style="display:inline-block;text-decoration:none;text-align:center;">Open App</a>
       </div>
     </div>
