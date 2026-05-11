@@ -14,6 +14,12 @@ type AndroidChapterInput = {
   url: string
 }
 
+type NormalizedChapterInput = {
+  number: number
+  title: string
+  url: string
+}
+
 function normalizeBookType(raw: unknown): 'WEB_NOVEL' | 'LIGHT_NOVEL' | 'MANGA' | 'MANHWA' | 'PDF_DOWNLOAD' {
   return typeof raw === 'string' && VALID_BOOK_TYPES.has(raw)
     ? (raw as 'WEB_NOVEL' | 'LIGHT_NOVEL' | 'MANGA' | 'MANHWA' | 'PDF_DOWNLOAD')
@@ -54,12 +60,21 @@ export async function POST(req: NextRequest) {
       const { siteUrl, title, status, currentChapter, updatedAt, chapters: rawAndroidChapters, coverUrl, description, type: rawType } = androidBook
       const normalizedType = normalizeBookType(rawType)
 
-      // Normalize chapters: convert number from string to int
-      const androidChapters = (rawAndroidChapters as AndroidChapterInput[] | undefined)?.map((ch) => ({
-        number: typeof ch.number === 'string' ? parseInt(ch.number, 10) : ch.number,
-        title: ch.title || '',
-        url: ch.url,
-      })) || undefined
+      // Normalize chapters: convert number from string to int and guarantee a numeric fallback.
+      const androidChapters = (rawAndroidChapters as AndroidChapterInput[] | undefined)?.reduce<NormalizedChapterInput[]>((chapters, ch, index) => {
+        const parsedNumber = typeof ch.number === 'string' ? parseInt(ch.number, 10) : ch.number
+        const normalizedNumber = typeof parsedNumber === 'number' && Number.isFinite(parsedNumber)
+          ? parsedNumber
+          : index + 1
+
+        chapters.push({
+          number: normalizedNumber,
+          title: ch.title || '',
+          url: ch.url,
+        })
+
+        return chapters
+      }, []) || undefined
 
       console.log(`[Sync] Processing book: title=${title}, siteUrl=${siteUrl}, chapter=${currentChapter}, chapters=${androidChapters?.length || 0}, cover=${coverUrl ? 'yes' : 'no'}`)
 
