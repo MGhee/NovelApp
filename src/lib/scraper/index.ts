@@ -1,6 +1,6 @@
 import 'server-only'
 import type { ScrapeResult } from '@/lib/types'
-import { extractBookUrl, extractChapterFromUrl, normalizeUrl } from '@/lib/utils'
+import { extractBookUrl, extractChapterFromUrl, isReadNovelFullLikeHost, normalizeUrl } from '@/lib/utils'
 import { scrapeReadNovelFull } from './readnovelfull'
 import { scrapeNovelpub } from './novelpub'
 import { scrapeWuxiaworld } from './wuxiaworld'
@@ -18,7 +18,7 @@ import { scrapeGeneric } from './generic'
 
 export async function scrapeBook(inputUrl: string): Promise<ScrapeResult> {
   const parsed = new URL(inputUrl)
-  const host = parsed.hostname.replace(/^www\./, '')
+  const host = parsed.hostname.replace(/^www\./, '').toLowerCase()
 
   // ── Chapter URL detection ────────────────────────────────────────────────
   let url = inputUrl
@@ -40,10 +40,10 @@ export async function scrapeBook(inputUrl: string): Promise<ScrapeResult> {
   }
 
   // ── Dispatch to site-specific scraper ────────────────────────────────────
-  const scraperHost = new URL(url).hostname.replace(/^www\./, '')
+  const scraperHost = new URL(url).hostname.replace(/^www\./, '').toLowerCase()
   let result: ScrapeResult
 
-  if (scraperHost === 'readnovelfull.com' || scraperHost === 'readnovelfull.net') {
+  if (isReadNovelFullLikeHost(scraperHost)) {
     result = await scrapeReadNovelFull(url)
   } else if (scraperHost === 'novelpub.com') {
     result = await scrapeNovelpub(url)

@@ -3,11 +3,11 @@ import * as cheerio from 'cheerio'
 import type { ScrapeResult } from '@/lib/types'
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-const BASE = 'https://readnovelfull.com'
 
 export async function scrapeReadNovelFull(url: string): Promise<ScrapeResult> {
+  const baseUrl = new URL(url).origin
   const { data: html } = await axios.get(url, {
-    headers: { 'User-Agent': UA, Referer: BASE },
+    headers: { 'User-Agent': UA, Referer: baseUrl },
     timeout: 15000,
   })
   const $ = cheerio.load(html)
@@ -21,7 +21,7 @@ export async function scrapeReadNovelFull(url: string): Promise<ScrapeResult> {
   const author = $('li.author a').first().text().trim() || null
   const rawCover = $('.book img').attr('src') || $('meta[property="og:image"]').attr('content') || null
   const coverUrl = rawCover
-    ? rawCover.startsWith('http') ? rawCover : `${BASE}${rawCover}`
+    ? rawCover.startsWith('http') ? rawCover : `${baseUrl}${rawCover}`
     : null
   let description = $('div.desc-text p').map((_, el) => $(el).text().trim()).get().join('\n').trim() || null
   // Remove title if it appears at the start of description (duplicate from site HTML)
@@ -40,7 +40,7 @@ export async function scrapeReadNovelFull(url: string): Promise<ScrapeResult> {
   if (novelId) {
     try {
       const { data: chHtml } = await axios.get(
-        `${BASE}/ajax/chapter-archive?novelId=${novelId}`,
+        `${baseUrl}/ajax/chapter-archive?novelId=${novelId}`,
         { headers: { 'User-Agent': UA, Referer: url }, timeout: 15000 }
       )
       const $c = cheerio.load(chHtml)
@@ -52,7 +52,7 @@ export async function scrapeReadNovelFull(url: string): Promise<ScrapeResult> {
           chapters.push({
             number: numMatch ? parseInt(numMatch[1], 10) : i + 1,
             title: chTitle || null,
-            url: href.startsWith('http') ? href : `${BASE}${href}`,
+            url: href.startsWith('http') ? href : `${baseUrl}${href}`,
           })
         }
       })

@@ -1,11 +1,62 @@
+const READ_NOVEL_FULL_HOSTS = [
+  'readnovelfull.com',
+  'readnovelfull.net',
+  'novelfull.com',
+  'novelfull.net',
+]
+
+function stripWww(hostname: string): string {
+  return hostname.replace(/^www\./i, '').toLowerCase()
+}
+
+export function isReadNovelFullLikeHost(hostname: string): boolean {
+  return READ_NOVEL_FULL_HOSTS.includes(stripWww(hostname))
+}
+
 /** Normalize a book URL — strip query params and trailing slash */
 export function normalizeUrl(url: string): string {
   try {
     const u = new URL(url)
-    return `${u.origin}${u.pathname}`.replace(/\/$/, '')
+    const host = stripWww(u.hostname)
+    const port = u.port ? `:${u.port}` : ''
+    return `${u.protocol}//${host}${port}${u.pathname}`.replace(/\/$/, '')
   } catch {
     return url.trim()
   }
+}
+
+export function buildBookUrlCandidates(inputUrl: string): string[] {
+  const candidates = new Set<string>()
+
+  const addForms = (raw: string) => {
+    if (!raw) return
+    const trimmed = raw.trim()
+    if (!trimmed) return
+
+    candidates.add(trimmed)
+
+    const normalized = normalizeUrl(trimmed)
+    candidates.add(normalized)
+    candidates.add(`${normalized}/`)
+    candidates.add(normalized.replace(/\/$/, ''))
+
+    try {
+      const parsed = new URL(normalized)
+      const host = stripWww(parsed.hostname)
+      const variant = `${parsed.protocol}//${host}${parsed.port ? `:${parsed.port}` : ''}${parsed.pathname}`.replace(/\/$/, '')
+      candidates.add(variant)
+      candidates.add(`${variant}/`)
+    } catch {
+      // Ignore malformed URL candidates.
+    }
+  }
+
+  addForms(inputUrl)
+
+  const extracted = extractBookUrl(inputUrl)
+  if (extracted) addForms(extracted)
+
+  return [...candidates]
 }
 
 /**
@@ -17,14 +68,15 @@ export function normalizeUrl(url: string): string {
 export function extractBookUrl(chapterUrl: string): string | null {
   try {
     const u = new URL(chapterUrl)
-    const host = u.hostname.replace(/^www\./, '')
+    const host = stripWww(u.hostname)
     const parts = u.pathname.split('/').filter(Boolean)
 
-    if (host === 'readnovelfull.com' || host === 'readnovelfull.net') {
+    if (isReadNovelFullLikeHost(host)) {
       // /{slug}/chapter-N.html → /{slug}.html
       if (parts.length < 2) return null
       const slug = parts[0]
-      return `${u.origin}/${slug}${slug.endsWith('.html') ? '' : '.html'}`
+      const port = u.port ? `:${u.port}` : ''
+      return `${u.protocol}//${host}${port}/${slug}${slug.endsWith('.html') ? '' : '.html'}`
     }
 
     if (host === 'novelpub.com') {

@@ -1,41 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { bookEmitter } from '@/lib/events'
-import { extractBookUrl, normalizeUrl } from '@/lib/utils'
+import { buildBookUrlCandidates } from '@/lib/utils'
 import { isAllowed } from '@/lib/rateLimiter'
 import { invalidateCache } from '@/lib/bookListCache'
 import { getUserId } from '@/lib/getUserId'
 
-function buildUrlCandidates(inputUrl: string): string[] {
-  const candidates = new Set<string>()
-
-  const addForms = (raw: string) => {
-    if (!raw) return
-    const trimmed = raw.trim()
-    if (!trimmed) return
-
-    candidates.add(trimmed)
-    const normalized = normalizeUrl(trimmed)
-    candidates.add(normalized)
-    candidates.add(`${normalized}/`)
-    candidates.add(normalized.replace(/\/$/, ''))
-
-    try {
-      const u = new URL(normalized)
-      const noWwwHost = u.hostname.replace(/^www\./, '')
-      const withNoWww = `${u.protocol}//${noWwwHost}${u.pathname}`.replace(/\/$/, '')
-      candidates.add(withNoWww)
-      candidates.add(`${withNoWww}/`)
-    } catch {
-      // Ignore malformed URL candidates.
-    }
-  }
-
-  addForms(inputUrl)
-  const extracted = extractBookUrl(inputUrl)
-  if (extracted) addForms(extracted)
-
-  return [...candidates]
+function isConnReset(err: unknown) {
+  if (!(err instanceof Error)) return false
+  const errorWithCode = err as Error & { code?: string }
+  return errorWithCode.code === 'ECONNRESET' || /aborted/i.test(err.message)
 }
 
 export async function POST(req: NextRequest) {
@@ -51,98 +25,112 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-  const { siteUrl, chapterNumber, chapterUrl } = await req.json()
-  if (!siteUrl || typeof chapterNumber !== 'number') {
-    return NextResponse.json({ error: 'siteUrl and chapterNumber are required' }, { status: 400 })
-  }
+    const { siteUrl, chapterNumber, chapterUrl } = await req.json()
+    if (!siteUrl || typeof chapterNumber !== 'number') {
+      return NextResponse.json({ error: 'siteUrl and chapterNumber are required' }, { status: 400 })
+    }
 
-  // Log whether an Authorization header was supplied (don't log the token)
-  console.debug('/api/extension/update: auth header present=', !!req.headers.get('authorization'))
+    // Log whether an Authorization header was supplied (don't log the token)
+    console.debug('/api/extension/update: auth header present=', !!req.headers.get('authorization'))
 
-  // The extension sends chapter URL; build robust variants to match stored siteUrl.
-  const urlCandidates = buildUrlCandidates(siteUrl)
+    // The extension sends chapter URL; build robust variants to match stored siteUrl.
+    const urlCandidates = buildBookUrlCandidates(siteUrl)
 
-  const book = await prisma.book.findFirst({
-    where: { userId, siteUrl: { in: urlCandidates } },
-    select: { id: true, title: true, currentChapter: true, currentChapterUrl: true, status: true, totalChapters: true },
-  })
-
-  if (!book) {
-    console.debug('/api/extension/update: no matching book for candidates', urlCandidates)
-    // Include candidates in response for easier local debugging
-    return NextResponse.json({ updated: false, book: null, candidates: urlCandidates })
-  }
-
-  console.debug('/api/extension/update: found book', { id: book.id, currentChapter: book.currentChapter, incomingChapter: chapterNumber })
-
-  // Enforce progress-only-increases invariant
-  if (chapterNumber < book.currentChapter) {
-    // User is behind; don't regress progress but offer redirect to latest chapter
-    // Always look up from Chapter table first (it's authoritative)
-    const chapter = await prisma.chapter.findFirst({
-      where: { bookId: book.id, number: book.currentChapter },
-      select: { url: true },
-    })
-    const redirectUrl = chapter?.url || book.currentChapterUrl || null
-
-    console.debug('/api/extension/update: chapter behind current, offering redirect', {
-      id: book.id,
-      incomingChapter: chapterNumber,
-      currentChapter: book.currentChapter,
-      redirectUrl: !!redirectUrl,
+    let book = await prisma.book.findFirst({
+      where: { userId, siteUrl: { in: urlCandidates } },
+      select: { id: true, title: true, currentChapter: true, currentChapterUrl: true, status: true, totalChapters: true },
     })
 
-    return NextResponse.json({
-      updated: false,
-      book: { id: book.id, title: book.title, currentChapter: book.currentChapter },
-      redirectUrl,
-      serverChapter: book.currentChapter,
+    if (!book) {
+      book = await prisma.book.findFirst({
+        where: {
+          userId,
+          chapters: {
+            some: {
+              url: { in: urlCandidates },
+            },
+          },
+        },
+        select: { id: true, title: true, currentChapter: true, currentChapterUrl: true, status: true, totalChapters: true },
+      })
+    }
+
+    if (!book) {
+      console.debug('/api/extension/update: no matching book for candidates', urlCandidates)
+      // Include candidates in response for easier local debugging
+      return NextResponse.json({ updated: false, book: null, candidates: urlCandidates })
+    }
+
+    console.debug('/api/extension/update: found book', { id: book.id, currentChapter: book.currentChapter, incomingChapter: chapterNumber })
+
+    // Enforce progress-only-increases invariant
+    if (chapterNumber < book.currentChapter) {
+      // User is behind; don't regress progress but offer redirect to latest chapter
+      // Always look up from Chapter table first (it's authoritative)
+      const chapter = await prisma.chapter.findFirst({
+        where: { bookId: book.id, number: book.currentChapter },
+        select: { url: true },
+      })
+      const redirectUrl = chapter?.url || book.currentChapterUrl || null
+
+      console.debug('/api/extension/update: chapter behind current, offering redirect', {
+        id: book.id,
+        incomingChapter: chapterNumber,
+        currentChapter: book.currentChapter,
+        redirectUrl: !!redirectUrl,
+      })
+
+      return NextResponse.json({
+        updated: false,
+        book: { id: book.id, title: book.title, currentChapter: book.currentChapter },
+        redirectUrl,
+        serverChapter: book.currentChapter,
+      })
+    }
+
+    // Chapter >= current, update normally.
+    // Status policy: preserve whatever the user set. Only auto-promote to COMPLETED
+    // when they reach the final chapter (and totalChapters is known).
+    const totalKnown = book.totalChapters > 0
+    const reachedEnd = totalKnown && chapterNumber >= book.totalChapters
+    const nextStatus =
+      reachedEnd && book.status !== 'COMPLETED' ? 'COMPLETED' : undefined
+
+    const updated = await prisma.book.update({
+      where: { id: book.id },
+      data: {
+        currentChapter: chapterNumber,
+        currentChapterUrl: chapterUrl || null,
+        status: nextStatus,
+      },
+      select: {
+        id: true,
+        title: true,
+        author: true,
+        coverUrl: true,
+        status: true,
+        type: true,
+        currentChapter: true,
+        currentChapterUrl: true,
+        totalChapters: true,
+        siteUrl: true,
+        genre: true,
+        isFavorite: true,
+        yearRead: true,
+        updatedAt: true,
+      },
     })
-  }
 
-  // Chapter >= current, update normally.
-  // Status policy: preserve whatever the user set. Only auto-promote to COMPLETED
-  // when they reach the final chapter (and totalChapters is known).
-  const totalKnown = book.totalChapters > 0
-  const reachedEnd = totalKnown && chapterNumber >= book.totalChapters
-  const nextStatus =
-    reachedEnd && book.status !== 'COMPLETED' ? 'COMPLETED' : undefined
+    invalidateCache()
+    bookEmitter.emit(`book_updated:${userId}`, {
+      ...updated,
+      updatedAt: updated.updatedAt.toISOString(),
+    })
 
-  const updated = await prisma.book.update({
-    where: { id: book.id },
-    data: {
-      currentChapter: chapterNumber,
-      currentChapterUrl: chapterUrl || null,
-      status: nextStatus,
-    },
-    select: {
-      id: true,
-      title: true,
-      author: true,
-      coverUrl: true,
-      status: true,
-      type: true,
-      currentChapter: true,
-      currentChapterUrl: true,
-      totalChapters: true,
-      siteUrl: true,
-      genre: true,
-      isFavorite: true,
-      yearRead: true,
-      updatedAt: true,
-    },
-  })
-
-  invalidateCache()
-  bookEmitter.emit(`book_updated:${userId}`, {
-    ...updated,
-    updatedAt: updated.updatedAt.toISOString(),
-  })
-
-  return NextResponse.json({ updated: true, book: updated, redirectUrl: null })
-  } catch (err: any) {
-    if (err && (err.code === 'ECONNRESET' || /aborted/i.test(String(err.message || '')))) {
-      console.warn('Request aborted (ECONNRESET) in /api/extension/update', err?.stack || err)
+    return NextResponse.json({ updated: true, book: updated, redirectUrl: null })
+  } catch (err: unknown) {
+    if (isConnReset(err)) {
+      console.warn('Request aborted (ECONNRESET) in /api/extension/update', err instanceof Error ? err.stack || err.message : err)
       return NextResponse.json({ error: 'Request aborted' }, { status: 499 })
     }
     console.error('Error in /api/extension/update', err)

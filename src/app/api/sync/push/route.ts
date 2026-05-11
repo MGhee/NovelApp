@@ -4,12 +4,24 @@ import { bookEmitter } from '@/lib/events'
 import { scrapeBook } from '@/lib/scraper'
 import type { ScrapeResult } from '@/lib/types'
 import { getUserId } from '@/lib/getUserId'
+import { buildBookUrlCandidates, extractBookUrl, normalizeUrl } from '@/lib/utils'
 
 const VALID_BOOK_TYPES = new Set(['WEB_NOVEL', 'LIGHT_NOVEL', 'MANGA', 'MANHWA', 'PDF_DOWNLOAD'])
+
+type AndroidChapterInput = {
+  number?: number | string
+  title?: string | null
+  url: string
+}
+
 function normalizeBookType(raw: unknown): 'WEB_NOVEL' | 'LIGHT_NOVEL' | 'MANGA' | 'MANHWA' | 'PDF_DOWNLOAD' {
   return typeof raw === 'string' && VALID_BOOK_TYPES.has(raw)
     ? (raw as 'WEB_NOVEL' | 'LIGHT_NOVEL' | 'MANGA' | 'MANHWA' | 'PDF_DOWNLOAD')
     : 'WEB_NOVEL'
+}
+
+function normalizeBookSiteUrl(siteUrl: string): string {
+  return normalizeUrl(extractBookUrl(siteUrl) || siteUrl)
 }
 
 /**
@@ -43,7 +55,7 @@ export async function POST(req: NextRequest) {
       const normalizedType = normalizeBookType(rawType)
 
       // Normalize chapters: convert number from string to int
-      const androidChapters = rawAndroidChapters?.map((ch: any) => ({
+      const androidChapters = (rawAndroidChapters as AndroidChapterInput[] | undefined)?.map((ch) => ({
         number: typeof ch.number === 'string' ? parseInt(ch.number, 10) : ch.number,
         title: ch.title || '',
         url: ch.url,
@@ -56,16 +68,20 @@ export async function POST(req: NextRequest) {
         continue
       }
 
+      const normalizedSiteUrl = normalizeBookSiteUrl(siteUrl)
+      const siteUrlCandidates = buildBookUrlCandidates(siteUrl)
+
       try {
-        // Find existing book by userId + siteUrl (compound unique)
+        // Find existing book by any equivalent URL shape for this host.
         const existing = await prisma.book.findFirst({
-          where: { userId, siteUrl },
+          where: { userId, siteUrl: { in: siteUrlCandidates } },
           select: {
             id: true,
             status: true,
             currentChapter: true,
             title: true,
             updatedAt: true,
+            siteUrl: true,
           },
         })
 
@@ -93,6 +109,7 @@ export async function POST(req: NextRequest) {
           const updated = await prisma.book.update({
             where: { id: existing.id },
             data: {
+              siteUrl: normalizedSiteUrl,
               currentChapter: mergedChapter,
               status: mergedStatus,
               ...(coverUrl && { coverUrl }),
@@ -133,7 +150,7 @@ export async function POST(req: NextRequest) {
           }
 
           result.merged.push({
-            siteUrl,
+            siteUrl: normalizedSiteUrl,
             title: existing.title,
             status: mergedStatus,
             currentChapter: mergedChapter,
@@ -160,7 +177,7 @@ export async function POST(req: NextRequest) {
             data: {
               userId,
               title,
-              siteUrl,
+              siteUrl: normalizedSiteUrl,
               type: normalizedType,
               status: status || 'READING',
               currentChapter: chapterNum || 0,
@@ -202,7 +219,7 @@ export async function POST(req: NextRequest) {
           }
 
           result.merged.push({
-            siteUrl,
+            siteUrl: normalizedSiteUrl,
             title,
             status: status || 'READING',
             currentChapter: currentChapter || 0,
