@@ -108,6 +108,8 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
     return groups
   }, [book?.chapters])
 
+  const coverSrc = book?.coverUrl ? `/api/cover?url=${encodeURIComponent(book.coverUrl)}` : null
+
   async function loadBook() {
     setLoading(true)
     const res = await fetch(`/api/books/${id}`)
@@ -254,11 +256,11 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
       {/* Hero Banner */}
       <div style={{ position: 'relative', overflow: 'hidden' }}>
         {/* Blurred background cover */}
-        {book.coverUrl && (
+        {coverSrc && (
           <div style={{
             position: 'absolute',
             inset: '-20px',
-            backgroundImage: `url(${book.coverUrl})`,
+            backgroundImage: `url(${coverSrc})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
             filter: 'blur(30px) brightness(0.3)',
@@ -270,7 +272,7 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
         <div style={{
           position: 'absolute',
           inset: 0,
-          background: book.coverUrl
+          background: coverSrc
             ? 'linear-gradient(to bottom, rgba(13,13,13,0.4) 0%, rgba(13,13,13,0.95) 100%)'
             : 'linear-gradient(135deg, rgba(6,182,212,0.1) 0%, rgba(13,13,13,0.85) 100%)',
         }} />
@@ -300,8 +302,8 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
             boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
             border: '2px solid rgba(255,255,255,0.1)',
           }}>
-            {book.coverUrl ? (
-              <Image src={book.coverUrl} alt={book.title} fill unoptimized style={{ objectFit: 'cover' }} sizes="160px" />
+            {coverSrc ? (
+              <Image src={coverSrc} alt={book.title} fill unoptimized style={{ objectFit: 'cover' }} sizes="160px" />
             ) : (
               <div style={{
                 display: 'flex',

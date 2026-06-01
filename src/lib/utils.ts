@@ -5,6 +5,14 @@ const READ_NOVEL_FULL_HOSTS = [
   'novelfull.net',
 ]
 
+function getHostVariants(hostname: string): string[] {
+  const host = stripWww(hostname)
+  if (isReadNovelFullLikeHost(host)) {
+    return READ_NOVEL_FULL_HOSTS
+  }
+  return [host]
+}
+
 function stripWww(hostname: string): string {
   return hostname.replace(/^www\./i, '').toLowerCase()
 }
@@ -42,10 +50,12 @@ export function buildBookUrlCandidates(inputUrl: string): string[] {
 
     try {
       const parsed = new URL(normalized)
-      const host = stripWww(parsed.hostname)
-      const variant = `${parsed.protocol}//${host}${parsed.port ? `:${parsed.port}` : ''}${parsed.pathname}`.replace(/\/$/, '')
-      candidates.add(variant)
-      candidates.add(`${variant}/`)
+      const port = parsed.port ? `:${parsed.port}` : ''
+      for (const host of getHostVariants(parsed.hostname)) {
+        const variant = `${parsed.protocol}//${host}${port}${parsed.pathname}`.replace(/\/$/, '')
+        candidates.add(variant)
+        candidates.add(`${variant}/`)
+      }
     } catch {
       // Ignore malformed URL candidates.
     }

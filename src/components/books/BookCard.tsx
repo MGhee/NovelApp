@@ -40,6 +40,7 @@ function BookCard({ book, onDeleted, onUpdated }: BookCardProps) {
   const progress = book.totalChapters > 0
     ? Math.min((book.currentChapter / book.totalChapters) * 100, 100)
     : 0
+  const coverSrc = book.coverUrl ? `/api/cover?url=${encodeURIComponent(book.coverUrl)}` : null
 
   async function handleDelete(e: React.MouseEvent) {
     e.preventDefault()
@@ -81,9 +82,9 @@ function BookCard({ book, onDeleted, onUpdated }: BookCardProps) {
       >
         {/* Cover */}
         <div style={{ position: 'relative', width: '100%', height: '280px', backgroundColor: '#1a1a2e' }}>
-          {book.coverUrl ? (
+          {coverSrc ? (
             <Image
-              src={book.coverUrl}
+              src={coverSrc}
               alt={book.title}
               fill
               style={{ objectFit: 'cover' }}
