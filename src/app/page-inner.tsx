@@ -94,7 +94,7 @@ export default function HomePageInner() {
           <div style={{ padding: '0 16px', marginBottom: '24px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
               <span style={{ fontSize: '20px' }}>📚</span>
-              <span style={{ fontWeight: 800, fontSize: '16px', letterSpacing: '-0.5px' }}>NovelShelf</span>
+              <span style={{ fontWeight: 800, fontSize: '16px', letterSpacing: '-0.5px' }}>NovelShelf!!</span>
             </div>
           </div>
 
