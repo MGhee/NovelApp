@@ -1,0 +1,121 @@
+name: Create Release Tag
+
+on:
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-tag-master
+  cancel-in-progress: false
+
+jobs:
+  create-tag:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Check for existing release tag
+        id: existing
+        run: |
+          existing_tag=$(git tag --points-at "$GITHUB_SHA" "v*" | head -n 1)
+
+          if [[ -n "$existing_tag" ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "tag=$existing_tag" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+
+      - name: Calculate next semver tag
+        if: steps.existing.outputs.skip != 'true'
+        id: next
+        run: |
+          git fetch --tags --force
+
+          next_tag=$(node <<'NODE'
+          const fs = require('node:fs');
+          const { execSync } = require('node:child_process');
+
+          const semverPattern = /^(\d+)\.(\d+)\.(\d+)$/;
+
+          function parseVersion(version) {
+            const match = semverPattern.exec(version);
+            if (!match) {
+              return null;
+            }
+
+            return match.slice(1).map(Number);
+          }
+
+          function compareVersions(left, right) {
+            for (let index = 0; index < 3; index += 1) {
+              if (left[index] !== right[index]) {
+                return left[index] - right[index];
+              }
+            }
+
+            return 0;
+          }
+
+          function formatVersion(parts) {
+            return `v${parts[0]}.${parts[1]}.${parts[2]}`;
+          }
+
+          const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          const packageVersion = parseVersion(packageJson.version);
+
+          if (!packageVersion) {
+            throw new Error(`package.json version must be a semver value like 1.2.3. Received: ${packageJson.version}`);
+          }
+
+          const tags = execSync("git tag --list 'v*'", { encoding: 'utf8' })
+            .split(/\r?\n/)
+            .map((tag) => tag.trim())
+            .filter(Boolean)
+            .flatMap((tag) => {
+              const parsed = parseVersion(tag.slice(1));
+              return parsed ? [{ tag, version: parsed }] : [];
+            })
+            .sort((left, right) => compareVersions(left.version, right.version));
+
+          if (tags.length === 0) {
+            process.stdout.write(formatVersion(packageVersion));
+            process.exit(0);
+          }
+
+          const latestTagVersion = tags[tags.length - 1].version;
+          const nextVersion = compareVersions(packageVersion, latestTagVersion) > 0
+            ? packageVersion
+            : [latestTagVersion[0], latestTagVersion[1], latestTagVersion[2] + 1];
+
+          process.stdout.write(formatVersion(nextVersion));
+          NODE
+          )
+
+          echo "tag=$next_tag" >> "$GITHUB_OUTPUT"
+
+      - name: Create and push release tag
+        if: steps.existing.outputs.skip != 'true'
+        env:
+          NEXT_TAG: ${{ steps.next.outputs.tag }}
+        run: |
+          git tag "$NEXT_TAG" "$GITHUB_SHA"
+          git push origin "$NEXT_TAG"
+
+      - name: Report existing tag
+        if: steps.existing.outputs.skip == 'true'
+        run: echo "Commit already has release tag ${{ steps.existing.outputs.tag }}"
