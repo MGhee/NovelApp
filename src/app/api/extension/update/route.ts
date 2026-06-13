@@ -61,10 +61,43 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ updated: false, book: null, candidates: urlCandidates })
     }
 
-    console.debug('/api/extension/update: found book', { id: book.id, currentChapter: book.currentChapter, incomingChapter: chapterNumber })
+    // Reconcile chapter numbering: the extension parses the chapter number from the URL,
+    // but the Chapter table may use a different sequential index (e.g. Android syncs
+    // sequential indices). Look up the incoming URL in the Chapter table to resolve.
+    let resolvedChapter = chapterNumber
+    if (chapterUrl) {
+      const matchedChapter = await prisma.chapter.findFirst({
+        where: { bookId: book.id, url: chapterUrl },
+        select: { number: true },
+      })
+      if (matchedChapter) {
+        resolvedChapter = matchedChapter.number
+        console.debug('/api/extension/update: resolved chapter from URL', {
+          urlParsed: chapterNumber,
+          tableNumber: resolvedChapter,
+        })
+      }
+    }
+
+    console.debug('/api/extension/update: found book', { id: book.id, currentChapter: book.currentChapter, incomingChapter: resolvedChapter, totalChapters: book.totalChapters })
+
+    // Reject chapter numbers that exceed totalChapters (prevents decimal chapters like 917.1 being parsed as 9171)
+    if (book.totalChapters > 0 && resolvedChapter > book.totalChapters) {
+      console.debug('/api/extension/update: chapter exceeds totalChapters, rejecting', {
+        id: book.id,
+        incomingChapter: resolvedChapter,
+        totalChapters: book.totalChapters,
+      })
+      return NextResponse.json({
+        updated: false,
+        book: { id: book.id, title: book.title, currentChapter: book.currentChapter },
+        error: `Chapter ${resolvedChapter} exceeds total chapters (${book.totalChapters})`,
+        maxChapter: book.totalChapters,
+      })
+    }
 
     // Enforce progress-only-increases invariant
-    if (chapterNumber < book.currentChapter) {
+    if (resolvedChapter < book.currentChapter) {
       // User is behind; don't regress progress but offer redirect to latest chapter
       // Always look up from Chapter table first (it's authoritative)
       const chapter = await prisma.chapter.findFirst({
@@ -75,7 +108,7 @@ export async function POST(req: NextRequest) {
 
       console.debug('/api/extension/update: chapter behind current, offering redirect', {
         id: book.id,
-        incomingChapter: chapterNumber,
+        incomingChapter: resolvedChapter,
         currentChapter: book.currentChapter,
         redirectUrl: !!redirectUrl,
       })
@@ -92,14 +125,14 @@ export async function POST(req: NextRequest) {
     // Status policy: preserve whatever the user set. Only auto-promote to COMPLETED
     // when they reach the final chapter (and totalChapters is known).
     const totalKnown = book.totalChapters > 0
-    const reachedEnd = totalKnown && chapterNumber >= book.totalChapters
+    const reachedEnd = totalKnown && resolvedChapter >= book.totalChapters
     const nextStatus =
       reachedEnd && book.status !== 'COMPLETED' ? 'COMPLETED' : undefined
 
     const updated = await prisma.book.update({
       where: { id: book.id },
       data: {
-        currentChapter: chapterNumber,
+        currentChapter: resolvedChapter,
         currentChapterUrl: chapterUrl || null,
         status: nextStatus,
       },

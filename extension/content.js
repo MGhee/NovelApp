@@ -93,6 +93,23 @@
     })
 
     console.debug('extension: update response data=', data)
+
+    // 3a. Check if chapter was rejected for exceeding totalChapters
+    if (data?.maxChapter) {
+      console.warn('extension: chapter rejected - exceeds max', {
+        sent: chapterNumber,
+        maxChapter: data.maxChapter,
+      })
+      chrome.runtime.sendMessage({
+        type: 'CHAPTER_UPDATED',
+        updated: false,
+        bookTitle: data?.book?.title || null,
+        chapterNumber: data.maxChapter,
+        error: data.error,
+      })
+      return
+    }
+
     console.debug('extension: redirect check', {
       hasUrl: !!data?.redirectUrl,
       autoRedirect,
@@ -101,7 +118,7 @@
       shouldRedirect: data?.redirectUrl && autoRedirect && data.serverChapter > chapterNumber
     })
 
-    // 3. Check if redirect is needed
+    // 3b. Check if redirect is needed
     if (data?.redirectUrl && autoRedirect && data.serverChapter > chapterNumber) {
       console.debug('extension: initiating redirect to', data.redirectUrl)
       // Notify background for redirect badge

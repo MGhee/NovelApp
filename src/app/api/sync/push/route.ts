@@ -94,6 +94,7 @@ export async function POST(req: NextRequest) {
             id: true,
             status: true,
             currentChapter: true,
+            totalChapters: true,
             title: true,
             updatedAt: true,
             siteUrl: true,
@@ -110,7 +111,12 @@ export async function POST(req: NextRequest) {
 
           // Convert currentChapter to number (Android sends as string)
           const androidChapterNum = typeof currentChapter === 'string' ? parseInt(currentChapter, 10) : currentChapter
-          const mergedChapter = androidIsNewer ? androidChapterNum : existing.currentChapter
+          let mergedChapter = androidIsNewer ? androidChapterNum : existing.currentChapter
+          // Cap at totalChapters to prevent bogus chapter numbers (e.g. 917.1 parsed as 9171)
+          if (existing.totalChapters > 0 && mergedChapter > existing.totalChapters) {
+            console.log(`[Sync] ${title}: capping chapter ${mergedChapter} to totalChapters ${existing.totalChapters}`)
+            mergedChapter = existing.totalChapters
+          }
           // Android can only send "COMPLETED" or "READING" (it lacks ON_HOLD, DROPPED, etc.).
           // Always preserve the server's status unless Android reports a genuine completion.
           const mergedStatus =
@@ -174,8 +180,13 @@ export async function POST(req: NextRequest) {
         } else {
           // Book doesn't exist on server: create it
           // Map Android status (inLibrary=true means keep it, inLibrary=false means PLAN_TO_READ)
-          const chapterNum = typeof currentChapter === 'string' ? parseInt(currentChapter, 10) : currentChapter
+          let chapterNum = typeof currentChapter === 'string' ? parseInt(currentChapter, 10) : currentChapter
           const totalChapterNum = typeof androidBook.totalChapters === 'string' ? parseInt(androidBook.totalChapters, 10) : (androidBook.totalChapters || 0)
+          // Cap at totalChapters to prevent bogus chapter numbers
+          if (totalChapterNum > 0 && chapterNum > totalChapterNum) {
+            console.log(`[Sync] ${title}: capping new book chapter ${chapterNum} to totalChapters ${totalChapterNum}`)
+            chapterNum = totalChapterNum
+          }
 
           // Prefer chapters from Android; if not available, scrape
           let scrapedData: ScrapeResult | null = null
