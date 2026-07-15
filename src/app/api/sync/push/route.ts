@@ -5,6 +5,7 @@ import { scrapeBook } from '@/lib/scraper'
 import type { ScrapeResult } from '@/lib/types'
 import { getUserId } from '@/lib/getUserId'
 import { buildBookUrlCandidates, extractBookUrl, normalizeUrl } from '@/lib/utils'
+import { resolveYearReadForStatus } from '@/lib/yearRead'
 
 const VALID_BOOK_TYPES = new Set(['WEB_NOVEL', 'LIGHT_NOVEL', 'MANGA', 'MANHWA', 'PDF_DOWNLOAD'])
 
@@ -98,6 +99,7 @@ export async function POST(req: NextRequest) {
             title: true,
             updatedAt: true,
             siteUrl: true,
+            yearRead: true,
           },
         })
 
@@ -133,6 +135,11 @@ export async function POST(req: NextRequest) {
               siteUrl: normalizedSiteUrl,
               currentChapter: mergedChapter,
               status: mergedStatus,
+              yearRead: resolveYearReadForStatus({
+                status: mergedStatus,
+                existingYearRead: existing.yearRead,
+                currentYear: syncTime.getFullYear(),
+              }),
               ...(coverUrl && { coverUrl }),
               ...(description && { description }),
               updatedAt: syncTime,
@@ -199,13 +206,15 @@ export async function POST(req: NextRequest) {
             }
           }
 
+          const createdStatus = status || 'READING'
+
           const created = await prisma.book.create({
             data: {
               userId,
               title,
               siteUrl: normalizedSiteUrl,
               type: normalizedType,
-              status: status || 'READING',
+              status: createdStatus,
               currentChapter: chapterNum || 0,
               totalChapters: androidChapters?.length ? androidChapters.length : (scrapedData?.totalChapters || totalChapterNum || 0),
               coverUrl: scrapedData?.coverUrl || coverUrl || null,
@@ -213,7 +222,10 @@ export async function POST(req: NextRequest) {
               genre: scrapedData?.genre || null,
               author: scrapedData?.author || null,
               isFavorite: false, // Android doesn't have favorites
-              yearRead: null, // Android doesn't track year read
+              yearRead: resolveYearReadForStatus({
+                status: createdStatus,
+                currentYear: syncTime.getFullYear(),
+              }),
               chapters: androidChapters?.length
                 ? { createMany: { data: androidChapters } }
                 : (scrapedData?.chapters?.length ? { createMany: { data: scrapedData.chapters } } : undefined),
@@ -247,7 +259,7 @@ export async function POST(req: NextRequest) {
           result.merged.push({
             siteUrl: normalizedSiteUrl,
             title,
-            status: status || 'READING',
+            status: createdStatus,
             currentChapter: currentChapter || 0,
             resolved: true,
             created: true,

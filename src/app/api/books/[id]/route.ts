@@ -4,6 +4,7 @@ import { bookEmitter } from '@/lib/events'
 import { normalizeUrl } from '@/lib/utils'
 import { invalidateCache } from '@/lib/bookListCache'
 import { getUserId } from '@/lib/getUserId'
+import { resolveYearReadForStatus } from '@/lib/yearRead'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -39,6 +40,18 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   if (!existingBook) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   const { customFields, characters, ...fields } = body
+
+  const nextStatus = (fields.status ?? existingBook.status) as
+    | 'READING'
+    | 'COMPLETED'
+    | 'PLAN_TO_READ'
+    | 'DROPPED'
+
+  fields.yearRead = resolveYearReadForStatus({
+    status: nextStatus,
+    incomingYearRead: fields.yearRead,
+    existingYearRead: existingBook.yearRead,
+  })
 
   // Normalize siteUrl if provided
   if (fields.siteUrl) fields.siteUrl = normalizeUrl(fields.siteUrl)

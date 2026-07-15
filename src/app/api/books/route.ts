@@ -4,6 +4,7 @@ import { normalizeUrl } from '@/lib/utils'
 import { getCache, invalidateCache } from '@/lib/bookListCache'
 import { bookEmitter } from '@/lib/events'
 import { getUserId } from '@/lib/getUserId'
+import { resolveYearReadForStatus } from '@/lib/yearRead'
 
 const CACHE_TTL = 5000 // ms
 
@@ -117,6 +118,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'title is required' }, { status: 400 })
   }
 
+  const nextStatus = status || 'PLAN_TO_READ'
+
   const book = await prisma.book.create({
     data: {
       userId,
@@ -125,13 +128,16 @@ export async function POST(req: NextRequest) {
       coverUrl: coverUrl || null,
       description: description || null,
       genre: genre || null,
-      status: status || 'PLAN_TO_READ',
+      status: nextStatus,
       type: type || 'WEB_NOVEL',
       siteUrl: siteUrl ? normalizeUrl(siteUrl) : null,
       currentChapter: currentChapter || 0,
       totalChapters: totalChapters || 0,
       isFavorite: isFavorite || false,
-      yearRead: yearRead || null,
+      yearRead: resolveYearReadForStatus({
+        status: nextStatus,
+        incomingYearRead: yearRead,
+      }),
       chapters: chapters?.length
         ? { createMany: { data: chapters } }
         : undefined,

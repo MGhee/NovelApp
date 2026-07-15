@@ -5,6 +5,7 @@ import { buildBookUrlCandidates } from '@/lib/utils'
 import { isAllowed } from '@/lib/rateLimiter'
 import { invalidateCache } from '@/lib/bookListCache'
 import { getUserId } from '@/lib/getUserId'
+import { resolveYearReadForStatus } from '@/lib/yearRead'
 
 function isConnReset(err: unknown) {
   if (!(err instanceof Error)) return false
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest) {
 
     let book = await prisma.book.findFirst({
       where: { userId, siteUrl: { in: urlCandidates } },
-      select: { id: true, title: true, currentChapter: true, currentChapterUrl: true, status: true, totalChapters: true },
+      select: { id: true, title: true, currentChapter: true, currentChapterUrl: true, status: true, totalChapters: true, yearRead: true },
     })
 
     if (!book) {
@@ -51,7 +52,7 @@ export async function POST(req: NextRequest) {
             },
           },
         },
-        select: { id: true, title: true, currentChapter: true, currentChapterUrl: true, status: true, totalChapters: true },
+        select: { id: true, title: true, currentChapter: true, currentChapterUrl: true, status: true, totalChapters: true, yearRead: true },
       })
     }
 
@@ -129,12 +130,21 @@ export async function POST(req: NextRequest) {
     const nextStatus =
       reachedEnd && book.status !== 'COMPLETED' ? 'COMPLETED' : undefined
 
+    const nextYearRead =
+      nextStatus === 'COMPLETED'
+        ? resolveYearReadForStatus({
+            status: 'COMPLETED',
+            existingYearRead: book.yearRead,
+          })
+        : undefined
+
     const updated = await prisma.book.update({
       where: { id: book.id },
       data: {
         currentChapter: resolvedChapter,
         currentChapterUrl: chapterUrl || null,
         status: nextStatus,
+        yearRead: nextYearRead,
       },
       select: {
         id: true,
