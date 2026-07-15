@@ -1,4 +1,4 @@
-type CacheEntry = { expires: number; books: any[]; total: number }
+type CacheEntry = { expires: number; books: any[]; total: number; availableYears: number[] }
 
 const cache = new Map<string, CacheEntry>()
 

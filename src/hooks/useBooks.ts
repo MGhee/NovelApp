@@ -56,17 +56,21 @@ type BooksFilter = {
   status?: string
   search?: string
   favorites?: boolean
+  year?: number
   page?: number
   limit?: number
 }
+
+type CacheEntry = { books: BookSummary[]; total: number; availableYears: number[] }
 
 export function useBooks(filter: BooksFilter = {}) {
   const [books, setBooks] = useState<BookSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const cacheRef = useRef<Map<string, BookSummary[]>>(new Map())
+  const [total, setTotal] = useState(0)
+  const [availableYears, setAvailableYears] = useState<number[]>([])
+  const cacheRef = useRef<Map<string, CacheEntry>>(new Map())
   const abortRef = useRef<AbortController | null>(null)
-  const lastBaseKeyRef = useRef<string | null>(null)
 
   const clearCache = useCallback(() => {
     cacheRef.current.clear()
@@ -79,27 +83,18 @@ export function useBooks(filter: BooksFilter = {}) {
     if (filter.status) params.set('status', filter.status)
     if (filter.search) params.set('search', filter.search)
     if (filter.favorites) params.set('favorites', 'true')
+    if (filter.year) params.set('year', String(filter.year))
     const limit = typeof filter.limit === 'number' ? filter.limit : 50
     const offset = typeof filter.page === 'number' && filter.page > 0 ? (filter.page - 1) * limit : 0
     params.set('limit', String(limit))
     params.set('offset', String(offset))
     const key = params.toString()
-    // base key without pagination for append/replacement logic
-    const baseParams = new URLSearchParams()
-    if (filter.status) baseParams.set('status', filter.status)
-    if (filter.search) baseParams.set('search', filter.search)
-    if (filter.favorites) baseParams.set('favorites', 'true')
-    const baseKey = baseParams.toString()
 
     const cached = cacheRef.current.get(key)
     if (cached) {
-      // decide whether to append or replace based on baseKey
-      if (typeof filter.page === 'number' && filter.page > 1 && lastBaseKeyRef.current === baseKey) {
-        setBooks(prev => [...prev, ...cached])
-      } else {
-        setBooks(cached)
-      }
-      lastBaseKeyRef.current = baseKey || null
+      setBooks(cached.books)
+      setTotal(cached.total)
+      setAvailableYears(cached.availableYears)
       setLoading(false)
       return
     }
@@ -116,16 +111,13 @@ export function useBooks(filter: BooksFilter = {}) {
       if (!res.ok) throw new Error('Failed to fetch')
       const data: BookSummary[] = await res.json()
       const totalHeader = res.headers.get('X-Total-Count')
-      const total = totalHeader ? parseInt(totalHeader, 10) : undefined
-      cacheRef.current.set(key, data)
-      if (typeof filter.page === 'number' && filter.page > 1 && lastBaseKeyRef.current === baseKey) {
-        setBooks(prev => [...prev, ...data])
-      } else {
-        setBooks(data)
-      }
-      lastBaseKeyRef.current = baseKey || null;
-      // store total in a transient ref so callers can use it if needed
-      (fetchBooks as any).total = total
+      const totalCount = totalHeader ? parseInt(totalHeader, 10) : 0
+      const yearsHeader = res.headers.get('X-Available-Years')
+      const years = yearsHeader ? yearsHeader.split(',').map(Number).filter(n => !isNaN(n)) : []
+      cacheRef.current.set(key, { books: data, total: totalCount, availableYears: years })
+      setBooks(data)
+      setTotal(totalCount)
+      setAvailableYears(years)
     } catch (e) {
       // ignore aborts silently
       if ((e as any)?.name === 'AbortError') return
@@ -134,7 +126,7 @@ export function useBooks(filter: BooksFilter = {}) {
       setLoading(false)
       abortRef.current = null
     }
-  }, [filter.status, filter.search, filter.favorites, filter.page, filter.limit])
+  }, [filter.status, filter.search, filter.favorites, filter.year, filter.page, filter.limit])
 
   useEffect(() => {
     fetchBooks()
@@ -142,7 +134,7 @@ export function useBooks(filter: BooksFilter = {}) {
 
   useBookEvents(setBooks, clearCache)
 
-  return { books, loading, error, refetch: fetchBooks, getTotal: () => (fetchBooks as any).total }
+  return { books, loading, error, total, availableYears, refetch: fetchBooks }
 }
 
 export async function deleteBook(id: number) {

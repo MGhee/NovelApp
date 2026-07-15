@@ -59,20 +59,18 @@ export default function HomePageInner() {
   // reset page when filters change
   useEffect(() => {
     setPage(1)
-  }, [activeTab, debouncedSearch, isFavorites])
-  const { books, loading, error, refetch } = useBooks({
+  }, [activeTab, debouncedSearch, isFavorites, yearFilter])
+  const { books, loading, error, total, availableYears, refetch } = useBooks({
     status: isFavorites ? undefined : activeTab,
     search: debouncedSearch || undefined,
     favorites: isFavorites ? true : undefined,
+    year: yearFilter || undefined,
     page,
     limit: LIMIT,
   })
 
-  const years = (activeTab === 'COMPLETED' || isFavorites)
-    ? [...new Set(books.map((b) => b.yearRead).filter((y): y is number => y !== null))].sort((a, b) => b - a)
-    : []
-
-  const filtered = yearFilter ? books.filter((b) => b.yearRead === yearFilter) : books
+  const years = availableYears
+  const totalPages = Math.max(1, Math.ceil(total / LIMIT))
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: 'var(--bg)' }}>
@@ -219,9 +217,9 @@ export default function HomePageInner() {
           )}
 
           {/* Stats bar */}
-          {!loading && filtered.length > 0 && (
+          {!loading && books.length > 0 && (
             <div style={{ padding: '8px 24px', fontSize: '12px', color: 'var(--text-dim)' }}>
-              {filtered.length} {filtered.length === 1 ? 'book' : 'books'}
+              {total} {total === 1 ? 'book' : 'books'}{totalPages > 1 ? ` · Page ${page} of ${totalPages}` : ''}
             </div>
           )}
 
@@ -233,10 +231,6 @@ export default function HomePageInner() {
             onScroll={(e) => {
               const el = e.currentTarget as HTMLDivElement
               setScrolled(el.scrollTop > 0)
-              if (loading) return
-              if (el.scrollHeight - el.scrollTop - el.clientHeight < 300) {
-                setPage(p => p + 1)
-              }
             }}
           >
             {error && (
@@ -244,7 +238,7 @@ export default function HomePageInner() {
                 {error}
               </div>
             )}
-            {!error && !loading && filtered.length === 0 && (
+            {!error && !loading && books.length === 0 && (
               <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted)' }}>
                 <div style={{ fontSize: '48px', marginBottom: '12px', animation: 'float 3s ease-in-out infinite' }}>
                   {activeTab === 'READING' ? '📖' : activeTab === 'COMPLETED' ? '✅' : activeTab === 'FAVORITES' ? '⭐' : '📚'}
@@ -274,7 +268,7 @@ export default function HomePageInner() {
               </div>
             )}
 
-            {filtered.length > 0 && (
+            {books.length > 0 && (
               <motion.div
                 suppressHydrationWarning
                 variants={gridContainer}
@@ -282,16 +276,59 @@ export default function HomePageInner() {
                 animate="show"
                 style={{ display: 'flex', flexWrap: 'wrap', gap: '20px' }}
               >
-                {filtered.map((book) => (
+                {books.map((book) => (
                   <motion.div key={book.id} variants={gridItem} transition={gridItemTransition}>
                     <BookCard book={book} onDeleted={refetch} onUpdated={refetch} />
                   </motion.div>
                 ))}
               </motion.div>
             )}
-            {/* loading more indicator */}
-            {loading && page > 1 && (
-              <div suppressHydrationWarning style={{ textAlign: 'center', padding: '12px', color: 'var(--text-muted)' }}>Loading more…</div>
+
+            {/* Pagination controls */}
+            {totalPages > 1 && (
+              <div style={{
+                display: 'flex', justifyContent: 'center', alignItems: 'center',
+                gap: '8px', padding: '24px 0 12px', marginTop: '12px',
+              }}>
+                <button
+                  disabled={page <= 1}
+                  onClick={() => { setPage(p => Math.max(1, p - 1)); contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' }) }}
+                  style={paginationBtnStyle(page > 1)}
+                >
+                  ← Prev
+                </button>
+                {generatePageNumbers(page, totalPages).map((p, i) =>
+                  p === '...' ? (
+                    <span key={`ellipsis-${i}`} style={{ color: 'var(--text-muted)', fontSize: '13px', padding: '0 2px' }}>…</span>
+                  ) : (
+                    <button
+                      key={p}
+                      onClick={() => { setPage(p as number); contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' }) }}
+                      style={{
+                        ...paginationBtnStyle(true),
+                        backgroundColor: page === p ? 'var(--accent)' : 'var(--bg-card)',
+                        color: page === p ? '#fff' : 'var(--text-muted)',
+                        fontWeight: page === p ? 700 : 400,
+                        minWidth: '36px',
+                      }}
+                    >
+                      {p}
+                    </button>
+                  )
+                )}
+                <button
+                  disabled={page >= totalPages}
+                  onClick={() => { setPage(p => Math.min(totalPages, p + 1)); contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' }) }}
+                  style={paginationBtnStyle(page < totalPages)}
+                >
+                  Next →
+                </button>
+              </div>
+            )}
+
+            {/* loading indicator */}
+            {loading && (
+              <div suppressHydrationWarning style={{ textAlign: 'center', padding: '12px', color: 'var(--text-muted)' }}>Loading…</div>
             )}
           </div>
 
@@ -316,4 +353,30 @@ function yearBtnStyle(active: boolean): React.CSSProperties {
     border: '1px solid var(--border)', borderRadius: '4px',
     color: active ? '#fff' : 'var(--text-muted)',
   }
+}
+
+function paginationBtnStyle(enabled: boolean): React.CSSProperties {
+  return {
+    padding: '6px 14px', fontSize: '13px', cursor: enabled ? 'pointer' : 'default',
+    backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)',
+    borderRadius: '6px', color: enabled ? 'var(--text)' : 'var(--text-dim)',
+    opacity: enabled ? 1 : 0.4, transition: 'all 0.15s',
+  }
+}
+
+function generatePageNumbers(current: number, total: number): (number | '...')[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
+  const pages: (number | '...')[] = []
+  if (current <= 4) {
+    for (let i = 1; i <= 5; i++) pages.push(i)
+    pages.push('...', total)
+  } else if (current >= total - 3) {
+    pages.push(1, '...')
+    for (let i = total - 4; i <= total; i++) pages.push(i)
+  } else {
+    pages.push(1, '...')
+    for (let i = current - 1; i <= current + 1; i++) pages.push(i)
+    pages.push('...', total)
+  }
+  return pages
 }

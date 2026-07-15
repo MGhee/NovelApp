@@ -17,29 +17,35 @@ export async function GET(req: NextRequest) {
   const status = searchParams.get('status')
   const search = searchParams.get('search')
   const favorites = searchParams.get('favorites') === 'true'
+  const yearParam = searchParams.get('year')
   const limit = Math.min(200, parseInt(searchParams.get('limit') || '50', 10) || 50)
   const offset = Math.max(0, parseInt(searchParams.get('offset') || '0', 10) || 0)
 
-  // Build where clause - allow books owned by user or with no owner (legacy books)
-  const where: any = {}
-
-  // Match books by userId (owned by user or legacy with null userId)
-  where.OR = [
+  // Build base where clause (without year filter, for year aggregation)
+  const baseWhere: any = {}
+  baseWhere.OR = [
     { userId: userId },
     { userId: null }
   ]
+  if (status) baseWhere.status = status
+  if (favorites) baseWhere.isFavorite = true
+  if (search) baseWhere.title = { contains: search }
 
-  if (status) where.status = status
-  if (favorites) where.isFavorite = true
-  if (search) where.title = { contains: search }
+  // Add year filter for the main query
+  const where = { ...baseWhere }
+  if (yearParam) {
+    const yearNum = parseInt(yearParam, 10)
+    if (!isNaN(yearNum)) where.yearRead = yearNum
+  }
 
-  const cacheKey = JSON.stringify({ userId, where, limit, offset })
+  const cacheKey = JSON.stringify({ userId, where, baseWhere, limit, offset })
   const now = Date.now()
   const cache = getCache()
   const existing = cache.get(cacheKey)
   if (existing && existing.expires > now) {
     const res = NextResponse.json(existing.books)
     res.headers.set('X-Total-Count', String(existing.total))
+    res.headers.set('X-Available-Years', existing.availableYears.join(','))
     res.headers.set('X-Cache', 'HIT')
     return res
   }
@@ -48,9 +54,14 @@ export async function GET(req: NextRequest) {
 
   const total = await prisma.book.count({ where })
 
+  // Order completed books by year finished (most recent first)
+  const orderBy = status === 'COMPLETED'
+    ? [{ yearRead: 'desc' as const }, { updatedAt: 'desc' as const }]
+    : [{ updatedAt: 'desc' as const }]
+
   const books = await prisma.book.findMany({
     where,
-    orderBy: { updatedAt: 'desc' },
+    orderBy,
     take: limit,
     skip: offset,
     select: {
@@ -70,11 +81,21 @@ export async function GET(req: NextRequest) {
     },
   })
 
+  // Fetch distinct years for the year filter UI (from all books in this tab, not just current page)
+  const yearsResult = await prisma.book.findMany({
+    where: { ...baseWhere, yearRead: { not: null } },
+    select: { yearRead: true },
+    distinct: ['yearRead'],
+    orderBy: { yearRead: 'desc' },
+  })
+  const availableYears = yearsResult.map(r => r.yearRead).filter((y): y is number => y !== null)
+
   const duration = Date.now() - start
-  cache.set(cacheKey, { expires: now + CACHE_TTL, books, total })
+  cache.set(cacheKey, { expires: now + CACHE_TTL, books, total, availableYears })
 
   const res = NextResponse.json(books)
   res.headers.set('X-Total-Count', String(total))
+  res.headers.set('X-Available-Years', availableYears.join(','))
   res.headers.set('X-Limit', String(limit))
   res.headers.set('X-Offset', String(offset))
   res.headers.set('X-Query-Duration-ms', String(duration))
